@@ -1,0 +1,235 @@
+// Copyright (c) 2026 WSO2 LLC. (http://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import ballerina/http;
+import ballerina/jwt;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Client Authentication Types
+// ═══════════════════════════════════════════════════════════════════════════════
+
+# Google service account credentials for JWT-based authentication.
+# Maps to the service account JSON key file downloaded from
+# Google Cloud Console > IAM & Admin > Service Accounts.
+#
+# The library internally constructs a JWT assertion using these fields and
+# exchanges it for an OAuth2 access token via the JWT Bearer Grant (RFC 7523).
+# You do **not** need to set audience, scopes, or expiry — those are handled
+# automatically.
+#
+# **Field mapping from service account JSON:**
+# - `issuer` -> `client_email`
+# - `signatureConfig.config.keyFile` -> save `private_key` as a `.pem` file
+#
+# **Example:**
+# ```ballerina
+# chat:ServiceAccountConfig saConfig = {
+#     issuer: "my-bot@my-project.iam.gserviceaccount.com",
+#     signatureConfig: {
+#         config: { keyFile: "/path/to/private-key.pem" }
+#     }
+# };
+# ```
+#
+# + issuer - Service account email address (`client_email` from the JSON key file)
+# + signatureConfig - RSA signature configuration pointing to the PEM private key file
+@display {label: "Service Account Config"}
+public type ServiceAccountConfig record {|
+    @display {label: "Issuer (Service Account Email)"}
+    string issuer;
+    @display {label: "Signature Config"}
+    jwt:IssuerSignatureConfig signatureConfig;
+|};
+
+# OAuth2 credentials for user-authenticated access. Obtain from
+# Google Cloud Console > APIs & Credentials > OAuth 2.0 Client IDs, then use the
+# OAuth2 Playground or consent flow to get a refresh token with the
+# `https://www.googleapis.com/auth/chat.bot` scope.
+#
+# + clientId - OAuth2 Client ID
+# + clientSecret - OAuth2 Client Secret
+# + refreshUrl - Token refresh endpoint. Defaults to Google's OAuth2 token URL
+# + refreshToken - OAuth2 refresh token with the required scope
+@display {label: "OAuth2 Config"}
+public type OAuth2Config record {|
+    @display {label: "Client ID"}
+    string clientId;
+    @display {label: "Client Secret"}
+    string clientSecret;
+    @display {label: "Refresh URL"}
+    string refreshUrl = GOOGLE_TOKEN_URL;
+    @display {label: "Refresh Token"}
+    string refreshToken;
+|};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Client Connection Config
+// ═══════════════════════════════════════════════════════════════════════════════
+
+# Configuration for the Google Chat API client. Supports three authentication modes:
+#
+# 1. **Service Account** (`ServiceAccountConfig`): For Chat bots using a service account
+#    JSON key file. Most common for Chat app development.
+# 2. **OAuth2** (`OAuth2Config`): For user-authenticated access with automatic token refresh.
+# 3. **Bearer Token** (`http:BearerTokenConfig`): For short-lived pre-obtained tokens.
+#
+# + auth - Authentication configuration (service account, OAuth2, or bearer token)
+# + httpVersion - The HTTP version to use. Defaults to HTTP/2
+# + http1Settings - HTTP/1.x protocol settings
+# + http2Settings - HTTP/2 protocol settings
+# + timeout - Maximum time (in seconds) to wait for a response. Defaults to 30s
+# + forwarded - The `forwarded`/`x-forwarded` header setting
+# + followRedirects - Redirect handling configuration
+# + poolConfig - Connection pool configuration
+# + cache - HTTP caching configuration
+# + compression - Compression handling for `accept-encoding` header
+# + circuitBreaker - Circuit breaker configuration
+# + retryConfig - Retry configuration
+# + cookieConfig - Cookie handling configuration
+# + responseLimits - Inbound response size limits
+# + secureSocket - SSL/TLS configuration
+# + proxy - Proxy server configuration
+# + socketConfig - Client socket configuration
+# + validation - Enable/disable constraint validation. Defaults to true
+# + laxDataBinding - Enable relaxed data binding (nil-safe). Defaults to true
+@display {label: "Connection Config"}
+public type ConnectionConfig record {|
+    @display {label: "Auth Config"}
+    ServiceAccountConfig|OAuth2Config|http:BearerTokenConfig auth;
+    http:HttpVersion httpVersion = http:HTTP_2_0;
+    http:ClientHttp1Settings http1Settings = {};
+    http:ClientHttp2Settings http2Settings = {};
+    decimal timeout = 30;
+    string forwarded = "disable";
+    http:FollowRedirects followRedirects?;
+    http:PoolConfiguration poolConfig?;
+    http:CacheConfig cache = {};
+    http:Compression compression = http:COMPRESSION_AUTO;
+    http:CircuitBreakerConfig circuitBreaker?;
+    http:RetryConfig retryConfig?;
+    http:CookieConfig cookieConfig?;
+    http:ResponseLimitConfigs responseLimits = {};
+    http:ClientSecureSocket secureSocket?;
+    http:ProxyConfig proxy?;
+    http:ClientSocketConfig socketConfig = {};
+    boolean validation = true;
+    boolean laxDataBinding = true;
+|};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Query Parameter Records for Client API Operations
+// ═══════════════════════════════════════════════════════════════════════════════
+
+# Query parameters for listing spaces.
+#
+# + pageSize - Maximum number of spaces to return (max 1000)
+# + pageToken - Page token from a previous list request
+# + filter - A query filter (e.g., `spaceType = "SPACE"`)
+public type ListSpacesQueries record {
+    int pageSize?;
+    string pageToken?;
+    string filter?;
+};
+
+# Query parameters for creating a message.
+#
+# + threadKey - Thread identifier for creating or replying to a thread
+# + requestId - A unique request ID for idempotent requests
+# + messageReplyOption - How to handle threading when `threadKey` is set
+# + messageId - A custom ID for the message
+public type CreateMessageQueries record {
+    string threadKey?;
+    string requestId?;
+    string messageReplyOption?;
+    string messageId?;
+};
+
+# Query parameters for listing messages.
+#
+# + pageSize - Maximum number of messages to return (max 1000)
+# + pageToken - Page token from a previous list request
+# + filter - A query filter
+# + orderBy - Ordering of results (e.g., `createTime desc`)
+# + showDeleted - Whether to include deleted messages in the response
+public type ListMessagesQueries record {
+    int pageSize?;
+    string pageToken?;
+    string filter?;
+    string orderBy?;
+    boolean showDeleted?;
+};
+
+# Query parameters for updating a message.
+#
+# + updateMask - The field paths to update (comma-separated)
+# + allowMissing - If true, create the message if it doesn't exist
+public type UpdateMessageQueries record {
+    string updateMask?;
+    boolean allowMissing?;
+};
+
+# Query parameters for listing memberships.
+#
+# + pageSize - Maximum number of memberships to return (max 1000)
+# + pageToken - Page token from a previous list request
+# + filter - A query filter (e.g., `role = "ROLE_MANAGER"`)
+# + showGroups - Whether to include Google Group memberships
+# + showInvited - Whether to include invited memberships
+# + useAdminAccess - Whether to use admin access for the request
+public type ListMembershipsQueries record {
+    int pageSize?;
+    string pageToken?;
+    string filter?;
+    boolean showGroups?;
+    boolean showInvited?;
+    boolean useAdminAccess?;
+};
+
+# Query parameters for listing reactions.
+#
+# + pageSize - Maximum number of reactions to return (max 25)
+# + pageToken - Page token from a previous list request
+# + filter - A query filter (e.g., filter by emoji)
+public type ListReactionsQueries record {
+    int pageSize?;
+    string pageToken?;
+    string filter?;
+};
+
+# Query parameters for updating a space.
+#
+# + updateMask - The field paths to update (comma-separated)
+public type UpdateSpaceQueries record {
+    string updateMask?;
+};
+
+# Query parameters for finding a direct message space with a user.
+#
+# + name - Resource name of the user to find DM with. Format: `users/{user}`
+public type FindDirectMessageQueries record {
+    string name?;
+};
+
+# Query parameters for listing space events.
+#
+# + pageSize - Maximum number of events to return
+# + pageToken - Page token from a previous list request
+# + filter - Required. An event type filter (e.g., `eventTypes:"google.workspace.chat.message.v1.created"`)
+public type ListSpaceEventsQueries record {
+    int pageSize?;
+    string pageToken?;
+    string filter;
+};
