@@ -1,0 +1,13 @@
+[package]
+distribution = "2201.13.0"
+org = "ballerinax"
+name= "googleapis.googlechat"
+version = "@toml.version@"
+license = ["Apache-2.0"]
+authors = ["Ballerina"]
+keywords = ["Communication/Google Chat", "Cost/Freemium", "Vendor/Google"]
+icon = "icon.png"
+repository = "https://github.com/ballerina-platform/module-ballerinax-googleapis.googlechat"
+
+[build-options]
+observabilityIncluded = true
