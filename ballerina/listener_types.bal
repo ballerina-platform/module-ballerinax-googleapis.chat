@@ -42,6 +42,24 @@ import ballerina/http;
 #
 # + auth - Authentication for Pub/Sub subscription management (service account,
 #           OAuth2 with auto-refresh, or a pre-obtained bearer token)
+# + secureSocketConfig - Optional SSL/TLS configuration for the HTTP listener
+@display {label: "Listener Config"}
+public type ListenerConfig record {
+    @display {label: "Auth Config"}
+    ServiceAccountConfig|OAuth2Config|http:BearerTokenConfig auth;
+    @display {label: "SSL Config"}
+    http:ClientSecureSocket secureSocketConfig?;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Service Annotation
+// ═══════════════════════════════════════════════════════════════════════════════
+
+# Service-level configuration for the Google Chat trigger.
+#
+# Apply this annotation to the `chat:ChatService` to specify the Pub/Sub topic
+# and the public callback URL that Pub/Sub will push events to.
+#
 # + topicName - Fully qualified Pub/Sub topic resource name that the Chat app
 #               is configured to publish to. Format:
 #               `projects/<project-id>/topics/<topic-name>`.
@@ -50,18 +68,15 @@ import ballerina/http;
 # + callbackURL - The public URL where Pub/Sub will push events to this listener.
 #                 In development, use a tunnel like ngrok (e.g., `https://abc.ngrok.io/webhook`).
 #                 In production, use your deployed service URL.
-# + secureSocketConfig - Optional SSL/TLS configuration for the HTTP listener
-@display {label: "Listener Config"}
-public type ListenerConfig record {
-    @display {label: "Auth Config"}
-    ServiceAccountConfig|OAuth2Config|http:BearerTokenConfig auth;
+public type ServiceConfiguration record {|
     @display {label: "Pub/Sub Topic Name"}
     string topicName;
     @display {label: "Callback URL"}
     string callbackURL;
-    @display {label: "SSL Config"}
-    http:ClientSecureSocket secureSocketConfig?;
-};
+|};
+
+# Annotation for service-level Google Chat trigger configuration.
+public annotation ServiceConfiguration ServiceConfig on service;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chat Interaction Event (Pub/Sub Payload)

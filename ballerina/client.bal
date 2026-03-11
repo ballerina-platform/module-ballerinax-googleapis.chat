@@ -35,7 +35,7 @@ public isolated client class Client {
     # + serviceUrl - Base URL of the Google Chat API. Defaults to v1 endpoint.
     # + return - An error if client initialization fails
     public isolated function init(ConnectionConfig config,
-                                  string serviceUrl = CHAT_API_BASE_URL)
+            string serviceUrl = CHAT_API_BASE_URL)
         returns error? {
         http:ClientConfiguration httpClientConfig = {
             httpVersion: config.httpVersion,

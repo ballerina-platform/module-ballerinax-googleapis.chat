@@ -44,11 +44,13 @@ import ballerina/log;
 #         issuer: "my-bot@project.iam.gserviceaccount.com",
 #         keyId: "abc123",
 #         keyFile: "/path/to/key.pem"
-#     },
-#     project: "my-gcp-project",
-#     callbackURL: "https://my-app.example.com/webhook"
+#     }
 # });
 #
+# @chat:ServiceConfig {
+#     topicName: "projects/my-gcp-project/topics/my-chat-topic",
+#     callbackURL: "https://my-app.example.com/webhook"
+# }
 # service chat:ChatService on chatListener {
 #     remote function onMessage(chat:ChatEvent event) returns error? {
 #         // Handle incoming message
@@ -61,19 +63,17 @@ public class Listener {
     private http:Listener httpListener;
     private DispatcherService dispatcherService;
     private string subscriptionResource = "";
-    private string topicName;
-    private string pushEndpoint;
 
     http:Client pubSubClient;
 
     # Initializes the Google Chat trigger listener.
     #
-    # Creates a Pub/Sub push subscription on the pre-configured topic for
-    # receiving Chat events. The topic must already exist and be set as the
-    # connection target in the Google Chat API configuration page in
-    # Google Cloud Console.
+    # Sets up the HTTP listener and Pub/Sub client. The Pub/Sub subscription is
+    # created later in `attach()` using the `@ServiceConfig` annotation on the
+    # service. The topic must already exist and be set as the connection target
+    # in the Google Chat API configuration page in Google Cloud Console.
     #
-    # + listenerConfig - Configuration including auth, topic name, and callback URL
+    # + listenerConfig - Configuration including auth credentials
     # + listenOn - The port or HTTP listener to listen on. Defaults to port 8090.
     # + return - An error if initialization fails
     public function init(ListenerConfig listenerConfig, int|http:Listener listenOn = 8090) returns error? {
@@ -143,25 +143,36 @@ public class Listener {
         }
 
         self.pubSubClient = check new (PUBSUB_BASE_URL, pubSubClientConfig);
-        self.topicName = listenerConfig.topicName;
-        self.pushEndpoint = listenerConfig.callbackURL;
 
-        // Create a push subscription on the pre-existing topic
-        SubscriptionDetail detail = check createPushSubscription(
-            self.pubSubClient, self.topicName, self.pushEndpoint
-        );
-        self.subscriptionResource = detail.subscriptionResource;
-
-        // Initialize the dispatcher service
-        self.dispatcherService = new DispatcherService(self.subscriptionResource);
+        // Dispatcher is initialized with a placeholder; the real subscription
+        // resource is set in attach() after reading the @ServiceConfig annotation.
+        self.dispatcherService = new DispatcherService("");
     }
 
     # Attaches a `ChatService` implementation to this listener.
     #
-    # + serviceRef - The service to attach
+    # Reads the `@ServiceConfig` annotation on the service to obtain the
+    # `topicName` and `callbackURL`, then creates the Pub/Sub push subscription.
+    #
+    # + serviceRef - The service to attach (must have a `@ServiceConfig` annotation)
     # + attachPoint - The attach point (unused, kept for API compatibility)
-    # + return - An error if attachment fails
-    public isolated function attach(GenericServiceType serviceRef, () attachPoint) returns @tainted error? {
+    # + return - An error if the annotation is missing or subscription creation fails
+    public function attach(GenericServiceType serviceRef, () attachPoint) returns @tainted error? {
+        typedesc<any> serviceTypedesc = typeof serviceRef;
+        ServiceConfiguration? svcConfig = serviceTypedesc.@ServiceConfig;
+        if svcConfig is () {
+            return error ListenerError("@chat:ServiceConfig annotation with topicName and callbackURL is required on the service");
+        }
+
+        // Create a push subscription on the pre-existing topic
+        SubscriptionDetail detail = check createPushSubscription(
+            self.pubSubClient, svcConfig.topicName, svcConfig.callbackURL
+        );
+        self.subscriptionResource = detail.subscriptionResource;
+
+        // Re-initialize the dispatcher with the real subscription resource
+        self.dispatcherService = new DispatcherService(self.subscriptionResource);
+
         string serviceTypeStr = self.getServiceTypeStr(serviceRef);
         check self.dispatcherService.addServiceRef(serviceTypeStr, serviceRef);
     }
