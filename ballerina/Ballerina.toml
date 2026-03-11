@@ -9,5 +9,14 @@ keywords = ["Communication/Google Chat", "Cost/Freemium", "Vendor/Google"]
 icon = "icon.png"
 repository = "https://github.com/ballerina-platform/module-ballerinax-googleapis.googlechat"
 
+[platform.java21]
+graalvmCompatible = true
+
+[[platform.java21.dependency]]
+groupId = "io.ballerina.lib"
+artifactId = "googlechat-native"
+version = "0.1.0-SNAPSHOT"
+path = "../native/build/libs/googlechat-native-0.1.0-SNAPSHOT.jar"
+
 [build-options]
 observabilityIncluded = true
