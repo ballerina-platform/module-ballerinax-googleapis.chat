@@ -59,6 +59,7 @@ allprojects {
 }
 
 task build {
+    dependsOn(':googlechat-native:build')
     dependsOn(':googlechat-ballerina:build')
 }
 

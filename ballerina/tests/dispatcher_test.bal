@@ -14,16 +14,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import ballerina/http;
 import ballerina/test;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Dispatcher Service Unit Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Helper to create a test Client with a dummy bearer token (never actually called).
+function createTestClient() returns Client|error {
+    return new ({auth: <http:BearerTokenConfig>{token: "test-token"}});
+}
+
 // Test that DispatcherService correctly initializes with a subscription resource.
 @test:Config {}
-function testDispatcherServiceInit() {
-    DispatcherService _ = new ("projects/test-project/subscriptions/test-sub");
+function testDispatcherServiceInit() returns error? {
+    Client testClient = check createTestClient();
+    DispatcherService _ = new ("projects/test-project/subscriptions/test-sub", testClient);
     // If init succeeds without error, the test passes.
     test:assertTrue(true);
 }
@@ -31,7 +38,8 @@ function testDispatcherServiceInit() {
 // Test adding a service ref to the dispatcher.
 @test:Config {}
 function testDispatcherAddServiceRef() returns error? {
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub");
+    Client testClient = check createTestClient();
+    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
 
     MockChatService mockService = new ();
     check dispatcher.addServiceRef("ChatService", mockService);
@@ -42,7 +50,8 @@ function testDispatcherAddServiceRef() returns error? {
 // Test that adding a duplicate service ref returns an error.
 @test:Config {}
 function testDispatcherAddDuplicateServiceRef() returns error? {
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub");
+    Client testClient = check createTestClient();
+    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
 
     MockChatService mockService = new ();
     check dispatcher.addServiceRef("ChatService", mockService);
@@ -58,7 +67,8 @@ function testDispatcherAddDuplicateServiceRef() returns error? {
 // Test removing a service ref from the dispatcher.
 @test:Config {}
 function testDispatcherRemoveServiceRef() returns error? {
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub");
+    Client testClient = check createTestClient();
+    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
 
     MockChatService mockService = new ();
     check dispatcher.addServiceRef("ChatService", mockService);
@@ -69,8 +79,9 @@ function testDispatcherRemoveServiceRef() returns error? {
 
 // Test that removing a non-existent service ref returns an error.
 @test:Config {}
-function testDispatcherRemoveNonExistentServiceRef() {
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub");
+function testDispatcherRemoveNonExistentServiceRef() returns error? {
+    Client testClient = check createTestClient();
+    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
 
     error? result = dispatcher.removeServiceRef("ChatService");
     test:assertTrue(result is error);
@@ -82,7 +93,8 @@ function testDispatcherRemoveNonExistentServiceRef() {
 // Test that re-adding a service after removal works.
 @test:Config {}
 function testDispatcherReAddServiceRef() returns error? {
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub");
+    Client testClient = check createTestClient();
+    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
 
     MockChatService mockService = new ();
     check dispatcher.addServiceRef("ChatService", mockService);
@@ -96,7 +108,8 @@ function testDispatcherReAddServiceRef() returns error? {
 // Test dispatching with no service attached (should not error, silently returns).
 @test:Config {}
 function testDispatchWithNoServiceAttached() returns error? {
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub");
+    Client testClient = check createTestClient();
+    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
 
     ChatEvent event = {
         'type: MESSAGE,
@@ -109,10 +122,9 @@ function testDispatchWithNoServiceAttached() returns error? {
 }
 
 // Note: Dispatch tests that verify actual remote function invocation on the
-// MockChatService are not possible in unit tests because DispatcherService
-// uses handler:NativeHandler.invokeRemoteFunction() which requires the native
-// Java interop runtime. Testing the full dispatch flow requires integration
-// tests with a running HTTP listener and Pub/Sub push simulation.
+// MockChatService require the native Java dispatcher to be available at
+// runtime. Testing the full dispatch flow requires integration tests with
+// a running HTTP listener and Pub/Sub push simulation.
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Mock ChatService for Testing

@@ -124,8 +124,19 @@ public type ChatEvent record {
 # Triggers when a Google Chat interaction event is received.
 #
 # Implement this service object to handle Chat app events. Each remote function
-# corresponds to a specific event type. All functions are optional in the sense
-# that you only need to implement the ones relevant to your Chat app.
+# corresponds to a specific event type. You only need to implement the handlers
+# relevant to your Chat app.
+#
+# Each handler can accept just the event, or both the event and a `Caller`:
+# ```ballerina
+# // Without Caller (event-only)
+# remote function onMessage(googlechat:ChatEvent event) returns error? { ... }
+#
+# // With Caller (enables bot-safe reply operations)
+# remote function onMessage(googlechat:ChatEvent event, googlechat:Caller caller) returns error? {
+#     check caller->reply("Hello!");
+# }
+# ```
 #
 # **Available event handlers:**
 # - `onMessage` - A user sends a message (DM, @mention, slash command)
@@ -134,45 +145,10 @@ public type ChatEvent record {
 # - `onCardClicked` - A user clicks a button/card element
 # - `onAppHome` - A user navigates to the app home
 # - `onSubmitForm` - A user submits a form/dialog
-public type ChatService service object {
-    # Triggered when a user sends a message to the Chat app.
-    # This includes direct messages, @mentions, and slash commands.
-    #
-    # + event - The Chat interaction event containing the message
-    # + return - An error if processing fails
-    remote function onMessage(ChatEvent event) returns error?;
-
-    # Triggered when the Chat app is added to a space.
-    # Typically used to send a welcome/onboarding message.
-    #
-    # + event - The Chat interaction event with space details
-    # + return - An error if processing fails
-    remote function onAddedToSpace(ChatEvent event) returns error?;
-
-    # Triggered when the Chat app is removed from a space.
-    # Can be used for cleanup operations.
-    #
-    # + event - The Chat interaction event with space details
-    # + return - An error if processing fails
-    remote function onRemovedFromSpace(ChatEvent event) returns error?;
-
-    # Triggered when a user clicks an interactive element (button, card action).
-    #
-    # + event - The Chat interaction event with action data
-    # + return - An error if processing fails
-    remote function onCardClicked(ChatEvent event) returns error?;
-
-    # Triggered when a user navigates to the Chat app's home screen.
-    #
-    # + event - The Chat interaction event
-    # + return - An error if processing fails
-    remote function onAppHome(ChatEvent event) returns error?;
-
-    # Triggered when a user submits a form or dialog.
-    #
-    # + event - The Chat interaction event with form input data
-    # + return - An error if processing fails
-    remote function onSubmitForm(ChatEvent event) returns error?;
+public type ChatService distinct service object {
+    // The service type is kept minimal. The native Java dispatcher inspects
+    // the actual remote function signatures at runtime to determine whether
+    // to inject a Caller parameter alongside the ChatEvent.
 };
 
 # Union type for all service types the listener can attach.

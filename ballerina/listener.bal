@@ -15,6 +15,7 @@
 // under the License.
 
 import ballerina/http;
+import ballerina/jballerina.java;
 import ballerina/jwt;
 import ballerina/log;
 
@@ -63,6 +64,7 @@ public class Listener {
     private http:Listener httpListener;
     private DispatcherService dispatcherService;
     private string subscriptionResource = "";
+    private final Client chatClient;
 
     http:Client pubSubClient;
 
@@ -144,9 +146,13 @@ public class Listener {
 
         self.pubSubClient = check new (PUBSUB_BASE_URL, pubSubClientConfig);
 
-        // Dispatcher is initialized with a placeholder; the real subscription
-        // resource is set in attach() after reading the @ServiceConfig annotation.
-        self.dispatcherService = new DispatcherService("");
+        // Create an internal Google Chat API client using the same auth credentials.
+        // This client is used by the Caller to make Chat API calls (reply, react, etc.).
+        // The Client constructor handles scope configuration internally (uses chat.bot scope).
+        self.chatClient = check new ({auth: listenerConfig.auth});
+
+        self.dispatcherService = new DispatcherService("", self.chatClient);
+
     }
 
     # Attaches a `ChatService` implementation to this listener.
@@ -163,6 +169,7 @@ public class Listener {
         if svcConfig is () {
             return error ListenerError("@chat:ServiceConfig annotation with topicName and callbackURL is required on the service");
         }
+        check validateService(serviceRef);
 
         // Create a push subscription on the pre-existing topic
         SubscriptionDetail detail = check createPushSubscription(
@@ -170,8 +177,7 @@ public class Listener {
         );
         self.subscriptionResource = detail.subscriptionResource;
 
-        // Re-initialize the dispatcher with the real subscription resource
-        self.dispatcherService = new DispatcherService(self.subscriptionResource);
+        self.dispatcherService.setSubscriptionResource(self.subscriptionResource);
 
         string serviceTypeStr = self.getServiceTypeStr(serviceRef);
         check self.dispatcherService.addServiceRef(serviceTypeStr, serviceRef);
@@ -190,6 +196,9 @@ public class Listener {
     #
     # + return - An error if starting fails
     public isolated function 'start() returns error? {
+        if !self.dispatcherService.hasServiceRefs() {
+            return error ListenerError("No ChatService has been attached to this listener");
+        }
         check self.httpListener.attach(self.dispatcherService, ());
         return self.httpListener.'start();
     }
@@ -224,3 +233,8 @@ public class Listener {
         return "ChatService";
     }
 }
+
+isolated function validateService(GenericServiceType serviceObj) returns error? = @java:Method {
+    name: "validateService",
+    'class: "io.ballerina.lib.googlechat.ChatEventDispatcher"
+} external;

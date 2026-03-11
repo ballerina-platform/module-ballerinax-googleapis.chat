@@ -96,5 +96,8 @@ clean {
 }
 
 build.dependsOn "generatePomFileForMavenPublication"
+tasks.matching { it.name in ["test", "build"] }.configureEach {
+    dependsOn ":googlechat-native:build"
+}
 publishToMavenLocal.dependsOn build
 publish.dependsOn build
