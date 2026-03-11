@@ -40,7 +40,7 @@ import ballerina/log;
 # ## Usage
 #
 # ```ballerina
-# listener chat:Listener chatListener = new ({
+# listener chat:Listener chatListener = new (8000, {
 #     auth: {
 #         path: "/path/to/service-account.json"
 #     }
@@ -73,10 +73,10 @@ public class Listener {
     # service. The topic must already exist and be set as the connection target
     # in the Google Chat API configuration page in Google Cloud Console.
     #
+    # + listenOn - The port or HTTP listener to listen on. Defaults to port 8000.
     # + listenerConfig - Configuration including auth credentials
-    # + listenOn - The port or HTTP listener to listen on. Defaults to port 8090.
     # + return - An error if initialization fails
-    public function init(ListenerConfig listenerConfig, int|http:Listener listenOn = 8090) returns error? {
+    public function init(int|http:Listener listenOn = 8000, *ListenerConfig listenerConfig) returns error? {
         if listenOn is http:Listener {
             self.httpListener = listenOn;
         } else {
