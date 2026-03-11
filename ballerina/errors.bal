@@ -20,6 +20,9 @@ public type ListenerError distinct error;
 # Represents an error originating from the Google Chat API client.
 public type ClientError distinct error;
 
+# Represents an error when resolving service account credentials.
+public type ServiceAccountError distinct error;
+
 # Represents an error when Pub/Sub topic or subscription management fails.
 public type PubSubError distinct error;
 

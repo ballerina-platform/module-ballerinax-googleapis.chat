@@ -16,6 +16,29 @@
 
 import ballerina/test;
 
+@test:Config {}
+function testServiceAccountCredentialsRecordCreation() {
+    ServiceAccountCredentials credentials = {
+        client_email: "bot@example.iam.gserviceaccount.com",
+        private_key: string `-----BEGIN PRIVATE KEY-----
+test-key
+-----END PRIVATE KEY-----`
+    };
+
+    test:assertEquals(credentials.'type, "service_account");
+    test:assertEquals(credentials.client_email, "bot@example.iam.gserviceaccount.com");
+    test:assertTrue(credentials.private_key.includes("BEGIN PRIVATE KEY"));
+}
+
+@test:Config {}
+function testServiceAccountFileConfigRecordCreation() {
+    ServiceAccountFileConfig config = {
+        path: "/tmp/service-account.json"
+    };
+
+    test:assertEquals(config.path, "/tmp/service-account.json");
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Type Construction & Validation Tests
 // ═══════════════════════════════════════════════════════════════════════════════

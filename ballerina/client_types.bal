@@ -36,7 +36,7 @@ import ballerina/jwt;
 #
 # **Example:**
 # ```ballerina
-# chat:ServiceAccountConfig saConfig = {
+# googlechat:ServiceAccountConfig saConfig = {
 #     issuer: "my-bot@my-project.iam.gserviceaccount.com",
 #     signatureConfig: {
 #         config: { keyFile: "/path/to/private-key.pem" }
@@ -53,6 +53,75 @@ public type ServiceAccountConfig record {|
     @display {label: "Signature Config"}
     jwt:IssuerSignatureConfig signatureConfig;
 |};
+
+# Google service account credentials represented directly as a Ballerina record.
+# This mirrors the common fields in the service account JSON key file downloaded
+# from Google Cloud Console > IAM & Admin > Service Accounts.
+#
+# The library validates that the account `type` is `service_account`, then uses
+# `client_email` and `private_key` to construct the JWT bearer grant internally.
+#
+# **Example:**
+# ```ballerina
+# googlechat:ServiceAccountCredentials saCredentials = {
+#     client_email: "my-bot@my-project.iam.gserviceaccount.com",
+#     private_key: string `-----BEGIN PRIVATE KEY-----
+# ...
+# -----END PRIVATE KEY-----`
+# };
+# ```
+#
+# + type - Google credential type. Must be `service_account`
+# + project_id - Google Cloud project ID
+# + private_key_id - Private key ID from the service account JSON
+# + private_key - PEM-encoded private key content from the service account JSON
+# + client_email - Service account email address
+# + client_id - Numeric client ID
+# + auth_uri - Google OAuth authorization URI
+# + token_uri - Google OAuth token URI
+# + auth_provider_x509_cert_url - Google auth provider certificate URL
+# + client_x509_cert_url - Service account certificate URL
+# + universe_domain - Google API universe domain
+@display {label: "Service Account Credentials"}
+public type ServiceAccountCredentials record {|
+    @display {label: "Type"}
+    string 'type = "service_account";
+    @display {label: "Project ID"}
+    string project_id?;
+    @display {label: "Private Key ID"}
+    string private_key_id?;
+    @display {label: "Private Key"}
+    string private_key;
+    @display {label: "Client Email"}
+    string client_email;
+    @display {label: "Client ID"}
+    string client_id?;
+    @display {label: "Auth URI"}
+    string auth_uri?;
+    @display {label: "Token URI"}
+    string token_uri?;
+    @display {label: "Auth Provider Cert URL"}
+    string auth_provider_x509_cert_url?;
+    @display {label: "Client Cert URL"}
+    string client_x509_cert_url?;
+    @display {label: "Universe Domain"}
+    string universe_domain?;
+|};
+
+# Path to a Google service account JSON key file.
+#
+# The library reads the JSON file, validates it as a service account credential,
+# and constructs the JWT bearer grant internally.
+#
+# + path - Path to the Google service account JSON key file
+@display {label: "Service Account File Config"}
+public type ServiceAccountFileConfig record {|
+    @display {label: "Service Account File Path"}
+    string path;
+|};
+
+# Supported service-account-based authentication inputs.
+public type ServiceAccountAuthConfig ServiceAccountConfig|ServiceAccountCredentials|ServiceAccountFileConfig;
 
 # OAuth2 credentials for user-authenticated access. Obtain from
 # Google Cloud Console > APIs & Credentials > OAuth 2.0 Client IDs, then use the
@@ -81,10 +150,11 @@ public type OAuth2Config record {|
 
 # Configuration for the Google Chat API client. Supports three authentication modes:
 #
-# 1. **Service Account** (`ServiceAccountConfig`): For Chat bots using a service account
-#    JSON key file. Most common for Chat app development.
-# 2. **OAuth2** (`OAuth2Config`): For user-authenticated access with automatic token refresh.
-# 3. **Bearer Token** (`http:BearerTokenConfig`): For short-lived pre-obtained tokens.
+# 1. **Service Account PEM** (`ServiceAccountConfig`): Service account email plus a PEM/private-key configuration.
+# 2. **Service Account Record** (`ServiceAccountCredentials`): Inline Ballerina record matching the Google JSON key file.
+# 3. **Service Account File** (`ServiceAccountFileConfig`): Path to the Google JSON key file.
+# 4. **OAuth2** (`OAuth2Config`): For user-authenticated access with automatic token refresh.
+# 5. **Bearer Token** (`http:BearerTokenConfig`): For short-lived pre-obtained tokens.
 #
 # + auth - Authentication configuration (service account, OAuth2, or bearer token)
 # + httpVersion - The HTTP version to use. Defaults to HTTP/2
@@ -108,7 +178,7 @@ public type OAuth2Config record {|
 @display {label: "Connection Config"}
 public type ConnectionConfig record {|
     @display {label: "Auth Config"}
-    ServiceAccountConfig|OAuth2Config|http:BearerTokenConfig auth;
+    ServiceAccountAuthConfig|OAuth2Config|http:BearerTokenConfig auth;
     http:HttpVersion httpVersion = http:HTTP_2_0;
     http:ClientHttp1Settings http1Settings = {};
     http:ClientHttp2Settings http2Settings = {};

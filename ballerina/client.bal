@@ -21,8 +21,10 @@ import ballerina/jwt;
 # REST API v1 for managing spaces, messages, memberships, reactions, and
 # attachments.
 #
-# Supports three authentication modes:
-# - **Service Account** (`ServiceAccountConfig`): For Chat bots
+# Supports five authentication modes:
+# - **Service Account PEM** (`ServiceAccountConfig`): For Chat bots with service account email plus PEM/private-key config
+# - **Service Account Record** (`ServiceAccountCredentials`): For Chat bots with inline service account credentials
+# - **Service Account File** (`ServiceAccountFileConfig`): For Chat bots with a JSON key file path
 # - **OAuth2** (`OAuth2Config`): For user-authenticated access with auto token refresh
 # - **Bearer Token** (`http:BearerTokenConfig`): For pre-obtained tokens
 @display {label: "Google Chat", iconPath: "docs/icon.png"}
@@ -70,10 +72,10 @@ public isolated client class Client {
                 refreshToken: oauthConfig.refreshToken
             };
         } else {
-            // ServiceAccountConfig — use JWT Bearer Grant (RFC 7523) to exchange
+            // Service account auth — use JWT Bearer Grant (RFC 7523) to exchange
             // a signed JWT assertion for an OAuth2 access token. Google Chat API
             // requires a proper OAuth2 Bearer token, not a raw self-signed JWT.
-            ServiceAccountConfig saConfig = <ServiceAccountConfig>config.auth;
+            NormalizedServiceAccount saConfig = check normalizeServiceAccountAuth(<ServiceAccountAuthConfig>config.auth);
             jwt:IssuerConfig assertionConfig = {
                 issuer: saConfig.issuer,
                 username: saConfig.issuer,

@@ -27,9 +27,10 @@ import ballerina/http;
 # must already exist and be configured in the Google Chat app connection settings
 # in Google Cloud Console.
 #
-# **For service account auth**: Use the same service account JSON key file that
-# your Chat app uses. The `issuer` and `keyFile` fields correspond to
-# `client_email` and the `private_key` saved as a PEM file.
+# **For service account auth**: You can use one of three forms:
+# - `ServiceAccountConfig` with `issuer` plus a PEM/private-key config
+# - `ServiceAccountCredentials` with the service account represented as a Ballerina record
+# - `ServiceAccountFileConfig` with the path to the JSON key file
 #
 # **For OAuth2 auth**: Create OAuth2 credentials in Google Cloud Console and
 # obtain a refresh token with the `https://www.googleapis.com/auth/pubsub` scope.
@@ -46,7 +47,7 @@ import ballerina/http;
 @display {label: "Listener Config"}
 public type ListenerConfig record {
     @display {label: "Auth Config"}
-    ServiceAccountConfig|OAuth2Config|http:BearerTokenConfig auth;
+    ServiceAccountAuthConfig|OAuth2Config|http:BearerTokenConfig auth;
     @display {label: "SSL Config"}
     http:ClientSecureSocket secureSocketConfig?;
 };

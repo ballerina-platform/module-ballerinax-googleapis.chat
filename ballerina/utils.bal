@@ -14,7 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import ballerina/crypto;
 import ballerina/http;
+import ballerina/io;
+import ballerina/jwt;
 import ballerina/log;
 import ballerina/uuid;
 
@@ -83,4 +86,67 @@ isolated function createSubscription(http:Client pubSubClient, string subscripti
 isolated function deleteSubscription(http:Client pubSubClient, string subscriptionResource)
         returns error? {
     http:Response _ = check pubSubClient->delete(subscriptionResource);
+}
+
+type NormalizedServiceAccount record {|
+    string issuer;
+    jwt:IssuerSignatureConfig signatureConfig;
+|};
+
+type GoogleServiceAccountFile record {|
+    string 'type;
+    string client_email;
+    string private_key;
+    string project_id?;
+    string private_key_id?;
+    string client_id?;
+    string auth_uri?;
+    string token_uri?;
+    string auth_provider_x509_cert_url?;
+    string client_x509_cert_url?;
+    string universe_domain?;
+|};
+
+isolated function normalizeServiceAccountAuth(ServiceAccountAuthConfig config) returns NormalizedServiceAccount|error {
+    if config is ServiceAccountConfig {
+        return {
+            issuer: config.issuer,
+            signatureConfig: config.signatureConfig
+        };
+    }
+
+    ServiceAccountCredentials credentials = config is ServiceAccountCredentials
+        ? config
+        : check loadServiceAccountCredentials((<ServiceAccountFileConfig>config).path);
+    return normalizeServiceAccountCredentials(credentials);
+}
+
+isolated function loadServiceAccountCredentials(string path) returns ServiceAccountCredentials|error {
+    io:ReadableByteChannel byteChannel = check io:openReadableFile(path);
+    io:ReadableCharacterChannel charChannel = new (byteChannel, "UTF-8");
+    json|error content = charChannel.readJson();
+    error? closeError = charChannel.close();
+    if closeError is error {
+        log:printWarn("Failed to close service account credentials file", 'error = closeError, path = path);
+    }
+    json credentialsJson = check content;
+    GoogleServiceAccountFile rawCredentials = check credentialsJson.cloneWithType(GoogleServiceAccountFile);
+    if rawCredentials.'type != "service_account" {
+        return error ServiceAccountError("Invalid service account credentials type: expected 'service_account'");
+    }
+    return check credentialsJson.cloneWithType(ServiceAccountCredentials);
+}
+
+isolated function normalizeServiceAccountCredentials(ServiceAccountCredentials credentials) returns NormalizedServiceAccount|error {
+    if credentials.'type != "service_account" {
+        return error ServiceAccountError("Invalid service account credentials type: expected 'service_account'");
+    }
+
+    crypto:PrivateKey privateKey = check crypto:decodeRsaPrivateKeyFromContent(credentials.private_key.toBytes());
+    return {
+        issuer: credentials.client_email,
+        signatureConfig: {
+            config: privateKey
+        }
+    };
 }

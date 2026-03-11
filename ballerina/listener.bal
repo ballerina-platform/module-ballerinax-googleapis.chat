@@ -42,9 +42,7 @@ import ballerina/log;
 # ```ballerina
 # listener chat:Listener chatListener = new ({
 #     auth: {
-#         issuer: "my-bot@project.iam.gserviceaccount.com",
-#         keyId: "abc123",
-#         keyFile: "/path/to/key.pem"
+#         path: "/path/to/service-account.json"
 #     }
 # });
 #
@@ -119,10 +117,10 @@ public class Listener {
                 secureSocket: listenerConfig.secureSocketConfig
             };
         } else {
-            // ServiceAccountConfig — use JWT Bearer Grant (RFC 7523) to exchange
+            // Service account auth — use JWT Bearer Grant (RFC 7523) to exchange
             // a signed JWT assertion for an OAuth2 access token. Google Pub/Sub
             // requires a proper OAuth2 Bearer token, not a raw self-signed JWT.
-            ServiceAccountConfig saConfig = <ServiceAccountConfig>listenerConfig.auth;
+            NormalizedServiceAccount saConfig = check normalizeServiceAccountAuth(<ServiceAccountAuthConfig>listenerConfig.auth);
 
             jwt:IssuerConfig assertionConfig = {
                 issuer: saConfig.issuer,
