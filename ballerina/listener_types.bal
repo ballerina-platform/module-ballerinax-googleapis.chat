@@ -133,9 +133,10 @@ public type ChatEvent record {
 # // Without Caller (event-only)
 # remote function onMessage(googlechat:ChatEvent event) returns error? { ... }
 #
-# // With Caller (enables bot-safe reply operations)
+# // With Caller (enables bot-safe message and space operations)
 # remote function onMessage(googlechat:ChatEvent event, googlechat:Caller caller) returns error? {
-#     check caller->reply("Hello!");
+#     googlechat:Message message = check caller->reply("Hello!");
+#     check caller->deleteMessage(message);
 # }
 # ```
 #

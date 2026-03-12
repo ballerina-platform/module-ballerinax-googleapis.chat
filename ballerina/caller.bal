@@ -24,7 +24,9 @@
 # **Example:**
 # ```ballerina
 # remote function onMessage(googlechat:ChatEvent event, googlechat:Caller caller) returns error? {
-#     check caller->reply("Got your message!");
+#     googlechat:Message sent = check caller->reply("Got your message!");
+#     sent.text = "Updated";
+#     check caller->updateMessage(sent, updateMask = "text");
 # }
 # ```
 #
@@ -77,10 +79,82 @@ public isolated client class Caller {
         return self.chatClient->/spaces/[self.spaceId]/messages.post(message);
     }
 
+    # Updates a bot-accessible message in the same space.
+    #
+    # The `message.name` field must be present. It can be either the full resource
+    # name (for example `spaces/AAA/messages/abc123`) or just the leaf message ID
+    # (for example `abc123`).
+    #
+    # + message - The message to update. Its `name` identifies the target message,
+    #             and the updatable fields provide the new content.
+    # + queries - Query parameters such as `updateMask` and `allowMissing`
+    # + return - The updated message or an error
+    remote isolated function updateMessage(Message message, *UpdateMessageQueries queries) returns Message|error {
+        string resolvedMessageId = check resolveMessageId(message.name);
+        UpdateMessageRequest request = {
+            text: message.text,
+            cardsV2: message.cardsV2,
+            fallbackText: message.fallbackText,
+            accessoryWidgets: message.accessoryWidgets
+        };
+        if queries.updateMask is string {
+            if queries.allowMissing is boolean {
+                return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].put(
+                    request,
+                    updateMask = <string>queries.updateMask,
+                    allowMissing = <boolean>queries.allowMissing
+                );
+            }
+            return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].put(
+                request,
+                updateMask = <string>queries.updateMask
+            );
+        }
+
+        if queries.allowMissing is boolean {
+            return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].put(
+                request,
+                allowMissing = <boolean>queries.allowMissing
+            );
+        }
+
+        return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].put(request);
+    }
+
+    # Deletes a bot-accessible message in the same space.
+    #
+    # The `message.name` field must be present. It can be either the full resource
+    # name (for example `spaces/AAA/messages/abc123`) or just the leaf message ID
+    # (for example `abc123`).
+    #
+    # + message - The message to delete. Its `name` identifies the target message.
+    # + return - An error if the operation fails
+    remote isolated function deleteMessage(Message message) returns error? {
+        string resolvedMessageId = check resolveMessageId(message.name);
+        return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].delete();
+    }
+
     # Returns details about the space where the event occurred.
     #
     # + return - The space details or an error
     remote isolated function getSpace() returns Space|error {
         return self.chatClient->/spaces/[self.spaceId];
     }
+}
+
+isolated function resolveMessageId(string? messageId) returns string|error {
+    if messageId !is string || messageId == "" {
+        return error ClientError("Message name cannot be empty");
+    }
+
+    if messageId.indexOf("/") is int {
+        string[] parts = re `/`.split(messageId);
+        string lastPart = parts[parts.length() - 1];
+        if lastPart == "" {
+            return error ClientError("Invalid message ID or resource name: " + messageId);
+        }
+        return lastPart;
+    }
+
+    return messageId;
 }

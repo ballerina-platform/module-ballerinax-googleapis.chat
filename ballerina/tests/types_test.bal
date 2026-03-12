@@ -39,6 +39,26 @@ function testServiceAccountFileConfigRecordCreation() {
     test:assertEquals(config.path, "/tmp/service-account.json");
 }
 
+@test:Config {}
+function testCallerUpdateMessageRequestRecordCreation() {
+    UpdateMessageRequest request = {
+        text: "Updated text"
+    };
+
+    test:assertEquals(request.text, "Updated text");
+}
+
+@test:Config {}
+function testMessageRecordCreationWithName() {
+    Message message = {
+        name: "spaces/AAA/messages/abc123",
+        text: "Hello"
+    };
+
+    test:assertEquals(message.name, "spaces/AAA/messages/abc123");
+    test:assertEquals(message.text, "Hello");
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Type Construction & Validation Tests
 // ═══════════════════════════════════════════════════════════════════════════════

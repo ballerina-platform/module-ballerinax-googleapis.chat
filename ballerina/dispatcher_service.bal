@@ -92,6 +92,7 @@ service class DispatcherService {
         byte[] decodedBytes = check 'array:fromBase64(base64Data);
         string eventJson = check string:fromBytes(decodedBytes);
         json eventPayload = check eventJson.fromJsonString();
+        log:printDebug(LOG_EVENT_DECODED + eventJson);
 
         // Parse the event into a ChatEvent record
         ChatEvent chatEvent = check eventPayload.cloneWithType(ChatEvent);

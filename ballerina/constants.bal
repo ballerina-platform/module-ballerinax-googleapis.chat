@@ -99,6 +99,7 @@ const string EVENT_TYPE_SUBMIT_FORM = "SUBMIT_FORM";
 
 const string LOG_PUBSUB_SUB_CREATED = "Pub/Sub subscription created: ";
 const string LOG_EVENT_RECEIVED = "Chat event received: ";
+const string LOG_EVENT_DECODED = "Chat event decoded: ";
 const string LOG_EVENT_DISPATCHED = "Chat event dispatched: ";
 
 // ── Warning Messages ────────────────────────────────────────────────────────────
