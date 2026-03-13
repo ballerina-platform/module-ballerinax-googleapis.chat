@@ -62,6 +62,8 @@ public final class ChatEventDispatcher {
     private static final String FUNC_ON_ADDED_TO_SPACE = "onAddedToSpace";
     private static final String FUNC_ON_REMOVED_FROM_SPACE = "onRemovedFromSpace";
     private static final String FUNC_ON_CARD_CLICKED = "onCardClicked";
+    private static final String FUNC_ON_WIDGET_UPDATED = "onWidgetUpdated";
+    private static final String FUNC_ON_APP_COMMAND = "onAppCommand";
     private static final String FUNC_ON_APP_HOME = "onAppHome";
     private static final String FUNC_ON_SUBMIT_FORM = "onSubmitForm";
     private static final Set<String> VALID_REMOTE_METHODS = new HashSet<>(Set.of(
@@ -69,6 +71,8 @@ public final class ChatEventDispatcher {
             FUNC_ON_ADDED_TO_SPACE,
             FUNC_ON_REMOVED_FROM_SPACE,
             FUNC_ON_CARD_CLICKED,
+            FUNC_ON_WIDGET_UPDATED,
+            FUNC_ON_APP_COMMAND,
             FUNC_ON_APP_HOME,
             FUNC_ON_SUBMIT_FORM
     ));
@@ -175,7 +179,7 @@ public final class ChatEventDispatcher {
             if (!VALID_REMOTE_METHODS.contains(methodName)) {
                 return createValidationError("Unsupported remote method '" + methodName +
                         "' in ChatService. Allowed methods are: onMessage, onAddedToSpace, onRemovedFromSpace, " +
-                        "onCardClicked, onAppHome, onSubmitForm");
+                        "onCardClicked, onWidgetUpdated, onAppCommand, onAppHome, onSubmitForm");
             }
             BError validationError = validateRemoteMethod(remoteMethod);
             if (validationError != null) {

@@ -98,10 +98,11 @@ public annotation ServiceConfiguration ServiceConfig on service;
 # + thread - The thread related to the event
 # + space - The space where the interaction occurred
 # + action - The form action data (for CARD_CLICKED and SUBMIT_FORM events)
-# + configCompleteRedirectUrl - URL to redirect after configuration completes
-# + isDialogEvent - Whether this is a dialog-related event
+# + configCompleteRedirectUrl - URL to redirect after configuration completes (for MESSAGE, ADDED_TO_SPACE, APP_COMMAND)
+# + isDialogEvent - Whether this is a dialog-related event (for CARD_CLICKED and MESSAGE)
 # + dialogEventType - The type of dialog event
 # + common - Information about the user's client (locale, platform, form inputs)
+# + appCommandMetadata - Metadata about a Chat app command (for APP_COMMAND events)
 public type ChatEvent record {
     EventType 'type;
     string eventTime?;
@@ -116,6 +117,7 @@ public type ChatEvent record {
     boolean isDialogEvent?;
     DialogEventType dialogEventType?;
     CommonEventObject common?;
+    AppCommandMetadata appCommandMetadata?;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -145,6 +147,8 @@ public type ChatEvent record {
 # - `onAddedToSpace` - The app is added to a space
 # - `onRemovedFromSpace` - The app is removed from a space
 # - `onCardClicked` - A user clicks a button/card element
+# - `onWidgetUpdated` - A user updates a widget in a card or dialog
+# - `onAppCommand` - A user invokes a slash or quick command
 # - `onAppHome` - A user navigates to the app home
 # - `onSubmitForm` - A user submits a form/dialog
 public type ChatService distinct service object {

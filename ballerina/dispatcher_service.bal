@@ -130,6 +130,12 @@ service class DispatcherService {
             CARD_CLICKED => {
                 check self.executeRemoteFunc(chatEvent, "onCardClicked");
             }
+            WIDGET_UPDATED => {
+                check self.executeRemoteFunc(chatEvent, "onWidgetUpdated");
+            }
+            APP_COMMAND => {
+                check self.executeRemoteFunc(chatEvent, "onAppCommand");
+            }
             APP_HOME => {
                 check self.executeRemoteFunc(chatEvent, "onAppHome");
             }

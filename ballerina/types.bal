@@ -63,7 +63,8 @@ public enum MembershipState {
 public enum MembershipRole {
     MEMBERSHIP_ROLE_UNSPECIFIED,
     ROLE_MEMBER,
-    ROLE_MANAGER
+    ROLE_MANAGER,
+    ROLE_ASSISTANT_MANAGER
 }
 
 # Type of an annotation in a message.
@@ -71,7 +72,8 @@ public enum AnnotationType {
     ANNOTATION_TYPE_UNSPECIFIED,
     USER_MENTION,
     SLASH_COMMAND,
-    RICH_LINK
+    RICH_LINK,
+    CUSTOM_EMOJI
 }
 
 # Type of a rich link.
@@ -79,7 +81,9 @@ public enum RichLinkType {
     RICH_LINK_TYPE_UNSPECIFIED,
     DRIVE_FILE,
     CHAT_SPACE,
-    GMAIL_MESSAGE
+    GMAIL_MESSAGE,
+    MEET_SPACE,
+    CALENDAR_EVENT
 }
 
 # Type of an action response from a Chat app.
@@ -89,7 +93,8 @@ public enum ResponseType {
     UPDATE_MESSAGE,
     UPDATE_USER_MESSAGE_CARDS,
     REQUEST_CONFIG,
-    DIALOG
+    DIALOG,
+    UPDATE_WIDGET
 }
 
 # Type of deletion for a message.
@@ -125,11 +130,59 @@ public enum EventType {
     ADDED_TO_SPACE,
     REMOVED_FROM_SPACE,
     CARD_CLICKED,
+    WIDGET_UPDATED,
+    APP_COMMAND,
     APP_HOME,
     SUBMIT_FORM
 }
 
+# Type of a Chat app command.
+public enum AppCommandType {
+    APP_COMMAND_TYPE_UNSPECIFIED,
+    SLASH_COMMAND,
+    QUICK_COMMAND
+}
+
 // ── Space ───────────────────────────────────────────────────────────────────────
+
+# Predefined permission settings for a space (input only when creating a named space).
+public enum PredefinedPermissionSettings {
+    PREDEFINED_PERMISSION_SETTINGS_UNSPECIFIED,
+    COLLABORATION_SPACE,
+    ANNOUNCEMENT_SPACE
+}
+
+# Controls whether space managers and/or members are allowed to perform a specific action.
+#
+# + managersAllowed - Whether space managers (ROLE_MANAGER) have this permission
+# + membersAllowed - Whether regular members (ROLE_MEMBER) have this permission
+# + assistantManagersAllowed - Whether assistant managers (ROLE_ASSISTANT_MANAGER) have this permission
+public type PermissionSetting record {
+    boolean managersAllowed?;
+    boolean membersAllowed?;
+    boolean assistantManagersAllowed?;
+};
+
+# Fine-grained permission settings for an existing named space.
+#
+# + manageMembersAndGroups - Permission to manage members and groups
+# + modifySpaceDetails - Permission to update space name, avatar, description and guidelines
+# + toggleHistory - Permission to toggle space history on and off
+# + useAtMentionAll - Permission to use @all in a space
+# + manageApps - Permission to manage apps in a space
+# + manageWebhooks - Permission to manage webhooks in a space
+# + postMessages - Permission to post messages (output only)
+# + replyMessages - Permission to reply to messages
+public type PermissionSettings record {
+    PermissionSetting manageMembersAndGroups?;
+    PermissionSetting modifySpaceDetails?;
+    PermissionSetting toggleHistory?;
+    PermissionSetting useAtMentionAll?;
+    PermissionSetting manageApps?;
+    PermissionSetting manageWebhooks?;
+    PermissionSetting postMessages?;
+    PermissionSetting replyMessages?;
+};
 
 # A space in Google Chat. Spaces are conversations between two or more users
 # or 1:1 messages between a user and a Chat app.
@@ -149,6 +202,10 @@ public enum EventType {
 # + accessSettings - Access settings of the space
 # + spaceUri - URI for a user to access the space
 # + externalUserAllowed - Whether the space allows external users
+# + importModeExpireTime - Time when the space will be auto-deleted if it remains in import mode (RFC 3339)
+# + customer - Immutable customer ID of the domain; format: `customers/{customer}`
+# + predefinedPermissionSettings - Input only predefined permission settings when creating a space
+# + permissionSettings - Fine-grained permission settings for an existing named space
 public type Space record {
     string name?;
     SpaceType spaceType?;
@@ -165,6 +222,10 @@ public type Space record {
     AccessSettings accessSettings?;
     string spaceUri?;
     boolean externalUserAllowed?;
+    string importModeExpireTime?;
+    string customer?;
+    PredefinedPermissionSettings predefinedPermissionSettings?;
+    PermissionSettings permissionSettings?;
 };
 
 # Details about a space including description and rules.
@@ -429,7 +490,7 @@ public type UploadAttachmentRequest record {|
 
 // ── Annotation ──────────────────────────────────────────────────────────────────
 
-# An annotation on a message, highlighting a user mention, slash command, or link.
+# An annotation on a message, highlighting a user mention, slash command, link, or custom emoji.
 #
 # + type - The type of annotation
 # + startIndex - Start index (inclusive) in the plain-text message body
@@ -437,6 +498,7 @@ public type UploadAttachmentRequest record {|
 # + userMention - The user mentioned
 # + slashCommand - The slash command
 # + richLinkMetadata - Rich link metadata
+# + customEmojiMetadata - Custom emoji metadata (for CUSTOM_EMOJI annotations)
 public type ChatAnnotation record {
     AnnotationType 'type?;
     int:Signed32 startIndex?;
@@ -444,6 +506,14 @@ public type ChatAnnotation record {
     UserMentionMetadata userMention?;
     SlashCommandMetadata slashCommand?;
     RichLinkMetadata richLinkMetadata?;
+    CustomEmojiMetadata customEmojiMetadata?;
+};
+
+# Metadata for a custom emoji annotation in a message.
+#
+# + customEmoji - The custom emoji
+public type CustomEmojiMetadata record {
+    CustomEmoji customEmoji?;
 };
 
 # Metadata about a user mention.
@@ -476,11 +546,29 @@ public type SlashCommandMetadata record {
 # + richLinkType - The type of rich link
 # + driveLinkData - Drive link data (if DRIVE_FILE type)
 # + chatSpaceLinkData - Chat space link data (if CHAT_SPACE type)
+# + meetSpaceLinkData - Meet space link data (if MEET_SPACE type)
+# + calendarEventLinkData - Calendar event link data (if CALENDAR_EVENT type)
 public type RichLinkMetadata record {
     string uri?;
     RichLinkType richLinkType?;
     DriveLinkData driveLinkData?;
     ChatSpaceLinkData chatSpaceLinkData?;
+    MeetSpaceLinkData meetSpaceLinkData?;
+    CalendarEventLinkData calendarEventLinkData?;
+};
+
+# Data for Meet space rich links.
+#
+# + meetSpaceUri - The URI of the Meet space
+public type MeetSpaceLinkData record {
+    string meetSpaceUri?;
+};
+
+# Data for Calendar event rich links.
+#
+# + calendarEventId - The ID of the Calendar event
+public type CalendarEventLinkData record {
+    string calendarEventId?;
 };
 
 # Data for Google Drive links.
@@ -533,13 +621,50 @@ public type DeletionMetadata record {
 
 // ── Quoted Message ──────────────────────────────────────────────────────────────
 
+# Quote type for a quoted message.
+public enum QuoteType {
+    QUOTE_TYPE_UNSPECIFIED,
+    REPLY,
+    FORWARD
+}
+
 # Information about a quoted message.
 #
 # + name - Resource name of the quoted message. Format: `spaces/{space}/messages/{message}`
 # + lastUpdateTime - The last update time of the quoted message (RFC 3339)
+# + quoteType - The type of quote (REPLY or FORWARD)
+# + quotedMessageSnapshot - Output only. A snapshot of the quoted message's content
+# + forwardedMetadata - Output only. Metadata about the source space (for FORWARD type)
 public type QuotedMessageMetadata record {
     string name?;
     string lastUpdateTime?;
+    QuoteType quoteType?;
+    QuotedMessageSnapshot quotedMessageSnapshot?;
+    ForwardedMetadata forwardedMetadata?;
+};
+
+# A snapshot of the content of a quoted message.
+#
+# + sender - Output only. The quoted message's author resource name
+# + text - Output only. Snapshot of the quoted message's plain text content
+# + formattedText - Output only. Text with formatting markup (FORWARD type only)
+# + annotations - Output only. Annotations parsed from the text body (FORWARD type only)
+# + attachments - Output only. Copies of the attachment metadata (FORWARD type only)
+public type QuotedMessageSnapshot record {
+    string sender?;
+    string text?;
+    string formattedText?;
+    ChatAnnotation[] annotations?;
+    Attachment[] attachments?;
+};
+
+# Metadata about the source space of a forwarded message.
+#
+# + space - Output only. Resource name of the source space. Format: `spaces/{space}`
+# + spaceDisplayName - Output only. Display name of the source space at time of forwarding
+public type ForwardedMetadata record {
+    string space?;
+    string spaceDisplayName?;
 };
 
 // ── GIF ─────────────────────────────────────────────────────────────────────────
@@ -552,6 +677,131 @@ public type AttachedGif record {
 };
 
 // ── Cards V2 ────────────────────────────────────────────────────────────────────
+
+# Shape used to crop an image in a card header or icon.
+public enum ImageType {
+    SQUARE,
+    CIRCLE
+}
+
+# Divider style between card sections.
+public enum DividerStyle {
+    DIVIDER_STYLE_UNSPECIFIED,
+    SOLID_DIVIDER,
+    NO_DIVIDER
+}
+
+# How a card is displayed in an add-on (not used in Chat apps).
+public enum DisplayStyle {
+    DISPLAY_STYLE_UNSPECIFIED,
+    PEEK,
+    REPLACE
+}
+
+# Horizontal alignment of a widget within a column.
+public enum HorizontalAlignment {
+    HORIZONTAL_ALIGNMENT_UNSPECIFIED,
+    START,
+    CENTER,
+    END
+}
+
+# Vertical alignment of content within a column cell.
+public enum VerticalAlignment {
+    VERTICAL_ALIGNMENT_UNSPECIFIED,
+    CENTER,
+    TOP,
+    BOTTOM
+}
+
+# Visibility of a widget (Workspace Studio add-ons only).
+public enum Visibility {
+    VISIBILITY_UNSPECIFIED,
+    VISIBLE,
+    HIDDEN
+}
+
+# Syntax used to render TextParagraph text.
+public enum TextSyntax {
+    TEXT_SYNTAX_UNSPECIFIED,
+    HTML,
+    MARKDOWN
+}
+
+# Type of a Button (filled, outlined, etc.).
+public enum ButtonType {
+    BUTTON_TYPE_UNSPECIFIED,
+    OUTLINED,
+    FILLED,
+    FILLED_TONAL,
+    BORDERLESS
+}
+
+# Type of a SwitchControl widget.
+public enum ControlType {
+    SWITCH,
+    CHECKBOX,
+    CHECK_BOX
+}
+
+# Type of a SelectionInput widget.
+public enum SelectionType {
+    CHECK_BOX,
+    RADIO_BUTTON,
+    SWITCH,
+    DROPDOWN,
+    MULTI_SELECT
+}
+
+# Type of a DateTimePicker widget.
+public enum DateTimePickerType {
+    DATE_AND_TIME,
+    DATE_ONLY,
+    TIME_ONLY
+}
+
+# Type of a TextInput widget.
+public enum TextInputType {
+    SINGLE_LINE,
+    MULTIPLE_LINE
+}
+
+# Layout of a ChipList widget.
+public enum ChipListLayout {
+    LAYOUT_UNSPECIFIED,
+    WRAPPED,
+    HORIZONTAL_SCROLLABLE
+}
+
+# Layout of a GridItem.
+public enum GridItemLayout {
+    GRID_ITEM_LAYOUT_UNSPECIFIED,
+    TEXT_BELOW,
+    TEXT_ABOVE
+}
+
+# Image crop type.
+public enum ImageCropType {
+    IMAGE_CROP_TYPE_UNSPECIFIED,
+    SQUARE,
+    CIRCLE,
+    RECTANGLE_CUSTOM,
+    RECTANGLE_4_3
+}
+
+# Border type.
+public enum BorderType {
+    BORDER_TYPE_UNSPECIFIED,
+    NO_BORDER,
+    STROKE
+}
+
+# How a column sizes itself horizontally.
+public enum HorizontalSizeStyle {
+    HORIZONTAL_SIZE_STYLE_UNSPECIFIED,
+    FILL_AVAILABLE_SPACE,
+    FILL_MINIMUM_SPACE
+}
 
 # A card with a unique identifier, using the Cards V2 format.
 #
@@ -566,13 +816,30 @@ public type CardWithId record {
 #
 # + header - The header of the card
 # + sections - Sections of the card
-# + cardActions - Card actions (menu items in the card toolbar)
-# + name - Name of the card
+# + sectionDividerStyle - Divider style between header, sections and footer
+# + cardActions - Card actions (menu items in the card toolbar; add-ons only)
+# + name - Name of the card (used for card navigation; add-ons only)
+# + fixedFooter - Fixed footer shown at the bottom of the card
+# + displayStyle - How the card is displayed (add-ons only)
+# + peekCardHeader - Peek card header for contextual content (add-ons only)
 public type Card record {
     CardHeader header?;
     Section[] sections?;
+    DividerStyle sectionDividerStyle?;
     CardAction[] cardActions?;
     string name?;
+    CardFixedFooter fixedFooter?;
+    DisplayStyle displayStyle?;
+    CardHeader peekCardHeader?;
+};
+
+# Fixed footer displayed at the bottom of a card.
+#
+# + primaryButton - The primary button in the footer
+# + secondaryButton - The secondary button in the footer
+public type CardFixedFooter record {
+    Button primaryButton?;
+    Button secondaryButton?;
 };
 
 # Header of a card.
@@ -585,7 +852,7 @@ public type Card record {
 public type CardHeader record {
     string title?;
     string subtitle?;
-    string imageType?;
+    ImageType imageType?;
     string imageUrl?;
     string imageAltText?;
 };
@@ -595,78 +862,172 @@ public type CardHeader record {
 # + header - Text that appears at the top of a section
 # + widgets - Widgets in the section
 # + collapsible - Whether the section is collapsible
-# + uncollapsibleWidgetsCount - The number of uncollapsible widgets
+# + uncollapsibleWidgetsCount - The number of widgets always visible when collapsed
+# + id - Unique ID for the section (Workspace Studio add-ons only)
+# + collapseControl - Custom expand/collapse buttons (optional)
 public type Section record {
     string header?;
     Widget[] widgets?;
     boolean collapsible?;
-    int:Signed32 uncollapsibleWidgetsCount?;
+    int uncollapsibleWidgetsCount?;
+    string id?;
+    CollapseControl collapseControl?;
 };
 
-# A widget in a card section. Represented as a flexible JSON-like record since
-# the widget schema is deeply nested and polymorphic (textParagraph, image,
-# decoratedText, buttonList, selectionInput, dateTimePicker, grid, columns, etc.).
+# Custom expand/collapse buttons for a collapsible section.
 #
+# + horizontalAlignment - Alignment of the expand/collapse button
+# + expandButton - Custom button shown to expand the section
+# + collapseButton - Custom button shown to collapse the section
+public type CollapseControl record {
+    HorizontalAlignment horizontalAlignment?;
+    Button expandButton?;
+    Button collapseButton?;
+};
+
+# A widget in a card section.
+#
+# + horizontalAlignment - Horizontal alignment of the widget within a column
+# + id - Unique ID assigned to the widget (Workspace Studio add-ons only)
+# + visibility - Whether the widget is visible or hidden (Workspace Studio add-ons only)
 # + textParagraph - A text paragraph widget
 # + image - An image widget
 # + decoratedText - A decorated text widget
 # + buttonList - A button list widget
-# + selectionInput - A selection input widget
+# + textInput - A text input widget
+# + selectionInput - A selection input widget (checkboxes, radio buttons, dropdown, etc.)
 # + dateTimePicker - A date/time picker widget
-# + divider - A horizontal divider
+# + divider - A horizontal line divider
 # + grid - A grid widget
-# + columns - A columns widget
+# + columns - A columns layout widget
+# + carousel - A carousel of nested widgets
+# + chipList - A list of chips
 public type Widget record {
+    HorizontalAlignment horizontalAlignment?;
+    string id?;
+    Visibility visibility?;
     TextParagraph textParagraph?;
     Image image?;
     DecoratedText decoratedText?;
     ButtonList buttonList?;
-    json selectionInput?;
-    json dateTimePicker?;
-    json divider?;
-    json grid?;
-    json columns?;
+    TextInput textInput?;
+    SelectionInput selectionInput?;
+    DateTimePicker dateTimePicker?;
+    Divider divider?;
+    Grid grid?;
+    Columns columns?;
+    Carousel carousel?;
+    ChipList chipList?;
 };
 
 # A text paragraph widget.
 #
-# + text - The text content
+# + text - The text content (supports simple HTML formatting)
+# + maxLines - Maximum lines to display before truncating with a "show more" button
+# + textSyntax - The syntax used to render the text (HTML or MARKDOWN)
 public type TextParagraph record {
     string text?;
+    int maxLines?;
+    TextSyntax textSyntax?;
+};
+
+# A horizontal line divider widget.
+public type Divider record {
 };
 
 # An image widget.
 #
-# + imageUrl - The URL of the image
-# + altText - The alternative text of the image
-# + onClick - The click action for the image
+# + imageUrl - The HTTPS URL of the image
+# + altText - The alternative text for accessibility
+# + onClick - Action triggered when the user clicks the image
 public type Image record {
     string imageUrl?;
     string altText?;
     OnClick onClick?;
 };
 
-# A decorated text widget.
+# An icon displayed in a card widget.
 #
-# + icon - Deprecated icon for the widget
-# + startIcon - The icon displayed in front of the text
-# + topLabel - The label above the text
+# + altText - Accessibility label for the icon
+# + imageType - The shape used to crop the icon image
+# + knownIcon - A built-in Chat icon specified by name (e.g. "EMAIL", "PERSON")
+# + iconUrl - A custom icon specified by HTTPS URL
+# + materialIcon - A Google Material Icon
+public type Icon record {
+    string altText?;
+    ImageType imageType?;
+    string knownIcon?;
+    string iconUrl?;
+    MaterialIcon materialIcon?;
+};
+
+# A Google Material Icon.
+# Reference: https://fonts.google.com/icons
+#
+# + name - The icon name defined in the Material Symbols font (e.g. "home", "star")
+# + fill - Whether the icon is rendered filled (true) or outlined (false)
+# + weight - Stroke weight of the icon; one of 100, 200, 300, 400, 500, 600, 700
+# + grade - Visual emphasis: negative (−25), default (0), or high emphasis (200)
+public type MaterialIcon record {
+    string name?;
+    boolean fill?;
+    int weight?;
+    int grade?;
+};
+
+# An RGBA color value.
+#
+# + red - Red channel value in [0.0, 1.0]
+# + green - Green channel value in [0.0, 1.0]
+# + blue - Blue channel value in [0.0, 1.0]
+# + alpha - Alpha (opacity) value in [0.0, 1.0]
+public type Color record {
+    float red?;
+    float green?;
+    float blue?;
+    float alpha?;
+};
+
+# A decorated text widget with optional icon, labels, and action.
+#
+# + icon - Deprecated. Use startIcon instead
+# + startIcon - Icon displayed in front of the text
+# + startIconVerticalAlignment - Vertical alignment of the start icon
+# + topLabel - Label above the primary text
 # + text - The primary text content
-# + wrapText - Whether the text should wrap
-# + bottomLabel - The label below the text
-# + onClick - The click action for the widget
+# + wrapText - Whether the text wraps to the next line
+# + bottomLabel - Label below the primary text
+# + onClick - Action triggered when the widget is clicked
 # + button - A button at the end of the row
-# + switchControl - A switch control at the end of the row
+# + switchControl - A switch/checkbox at the end of the row
+# + endIcon - An icon at the end of the row
 public type DecoratedText record {
-    json icon?;
-    json startIcon?;
+    Icon icon?;
+    Icon startIcon?;
+    VerticalAlignment startIconVerticalAlignment?;
     string topLabel?;
     string text?;
     boolean wrapText?;
     string bottomLabel?;
     OnClick onClick?;
     Button button?;
-    json switchControl?;
+    SwitchControl switchControl?;
+    Icon endIcon?;
+};
+
+# A switch or checkbox control.
+#
+# + name - The name identifying the switch in form input data
+# + value - The value returned in form data when selected
+# + selected - Whether the switch is selected by default
+# + onChangeAction - Action triggered when the switch state changes
+# + controlType - Visual style of the control (SWITCH, CHECKBOX)
+public type SwitchControl record {
+    string name?;
+    string value?;
+    boolean selected?;
+    Action onChangeAction?;
+    ControlType controlType?;
 };
 
 # A list of buttons.
@@ -678,47 +1039,75 @@ public type ButtonList record {
 
 # A button in a card.
 #
-# + text - The text of the button
-# + icon - The icon of the button
-# + color - The color of the button
-# + onClick - The click action of the button
+# + text - The button label text
+# + icon - The icon for the button
+# + color - The fill color of the button
+# + onClick - Action triggered when the button is clicked
 # + disabled - Whether the button is disabled
-# + altText - The alternative text of the button
+# + altText - Accessibility label for the button
+# + type - The button style (OUTLINED, FILLED, etc.)
 public type Button record {
     string text?;
-    json icon?;
-    json color?;
+    Icon icon?;
+    Color color?;
     OnClick onClick?;
     boolean disabled?;
     string altText?;
+    ButtonType 'type?;
 };
 
 # An onClick action.
 #
-# + action - The action to perform (form submission)
-# + openLink - The URL to open
-# + openDynamicLinkAction - An add-on triggers this action when the form action needs to open a link
-# + card - A card to push onto the card stack (for navigation)
+# + action - Action to perform (form submission or function call)
+# + openLink - URL to open
+# + openDynamicLinkAction - Add-on action that opens a dynamic link (add-ons only)
+# + card - A card to push onto the card stack (add-ons only)
+# + overflowMenu - An overflow menu to open
 public type OnClick record {
     Action action?;
     OpenLink openLink?;
-    json openDynamicLinkAction?;
+    Action openDynamicLinkAction?;
     Card card?;
+    OverflowMenu overflowMenu?;
+};
+
+# An overflow menu displayed when an OnClick is triggered.
+#
+# + items - The list of menu items
+public type OverflowMenu record {
+    OverflowMenuItem[] items?;
+};
+
+# A single item in an overflow menu.
+#
+# + startIcon - Icon displayed before the item text
+# + text - The item label
+# + onClick - Action triggered when the item is clicked
+# + disabled - Whether the item is disabled
+public type OverflowMenuItem record {
+    Icon startIcon?;
+    string text?;
+    OnClick onClick?;
+    boolean disabled?;
 };
 
 # An action triggered by a widget interaction.
 #
-# + function - The method name of the action
+# + function - The custom function to invoke
 # + parameters - List of action parameters
-# + loadIndicator - The loading indicator type
-# + persistValues - Whether to persist form values across actions
-# + interaction - The interaction type (OPEN_DIALOG, etc.)
+# + loadIndicator - Loading indicator shown while the action runs
+# + persistValues - Whether form values are preserved after the action
+# + interaction - Interaction type, e.g. OPEN_DIALOG (Chat apps only)
+# + requiredWidgets - Names of widgets required for a valid submission
+# + allWidgetsAreRequired - If true, all widgets are treated as required
 public type Action record {
     string 'function?;
     ActionParameter[] parameters?;
     string loadIndicator?;
     boolean persistValues?;
     string interaction?;
+    string[] requiredWidgets?;
+    boolean allWidgetsAreRequired?;
 };
 
 # A parameter for an action.
@@ -741,13 +1130,251 @@ public type OpenLink record {
     string onClose?;
 };
 
-# A card action appears in the card toolbar menu.
+# A card action appears in the card toolbar menu (add-ons only).
 #
 # + actionLabel - The label of the action
 # + onClick - The click action
 public type CardAction record {
     string actionLabel?;
     OnClick onClick?;
+};
+
+# A text input widget.
+#
+# + name - The name that identifies the input in form data
+# + label - The label displayed above the text field
+# + hintText - Helper text displayed inside the text field when empty
+# + value - The pre-filled value
+# + type - Whether the input is single-line or multi-line
+# + onChangeAction - Action triggered on every keystroke
+# + initialSuggestions - Autocomplete suggestions shown on focus
+# + autoCompleteAction - Server-side action to fetch autocomplete suggestions
+# + validation - Validation rules for the input
+# + placeholderText - Placeholder text shown in multi-select chips
+public type TextInput record {
+    string name?;
+    string label?;
+    string hintText?;
+    string value?;
+    TextInputType 'type?;
+    Action onChangeAction?;
+    Suggestions initialSuggestions?;
+    Action autoCompleteAction?;
+    Validation validation?;
+    string placeholderText?;
+};
+
+# Autocomplete suggestion items for a text input.
+#
+# + items - The list of suggestion items
+public type Suggestions record {
+    SuggestionItem[] items?;
+};
+
+# A single autocomplete suggestion item.
+#
+# + text - The suggestion text shown to the user
+public type SuggestionItem record {
+    string text?;
+};
+
+# Validation rules for a TextInput widget.
+#
+# + characterLimit - Maximum number of characters allowed
+# + inputType - Type of input allowed (e.g. EMAIL, INTEGER)
+public type Validation record {
+    int characterLimit?;
+    string inputType?;
+};
+
+# A selection input widget (checkboxes, radio buttons, switch, dropdown, multi-select).
+#
+# + name - The name identifying the selection in form data
+# + label - The label displayed above the selection control
+# + type - The type of selection control
+# + items - The list of selectable items
+# + onChangeAction - Action triggered when the selection changes
+# + multiSelectMaxSelectedItems - Max number of items a user can select (multi-select)
+# + multiSelectMinQueryLength - Min characters before autocomplete is triggered (multi-select)
+# + hintText - Helper text for multi-select inputs
+# + externalDataSource - Action to fetch external data source items
+public type SelectionInput record {
+    string name?;
+    string label?;
+    SelectionType 'type?;
+    SelectionItem[] items?;
+    Action onChangeAction?;
+    int multiSelectMaxSelectedItems?;
+    int multiSelectMinQueryLength?;
+    string hintText?;
+    Action externalDataSource?;
+};
+
+# A selectable item in a SelectionInput.
+#
+# + text - The display text for the item
+# + value - The form data value submitted when selected
+# + selected - Whether the item is pre-selected
+# + bottomText - Description text displayed below the item text
+# + startIconUri - HTTPS URL of an icon displayed before the item text
+public type SelectionItem record {
+    string text?;
+    string value?;
+    boolean selected?;
+    string bottomText?;
+    string startIconUri?;
+};
+
+# A date, time, or date-and-time picker widget.
+#
+# + name - The name identifying the picker in form data
+# + label - The label displayed above the picker
+# + type - Whether to show date, time, or both
+# + valueMsEpoch - Pre-filled value as milliseconds since Unix epoch (string-encoded int64)
+# + timezoneOffsetDate - UTC offset in minutes for date-only pickers
+# + onChangeAction - Action triggered when the user picks a value
+public type DateTimePicker record {
+    string name?;
+    string label?;
+    DateTimePickerType 'type?;
+    string valueMsEpoch?;
+    int timezoneOffsetDate?;
+    Action onChangeAction?;
+};
+
+# A grid widget displaying a collection of items.
+#
+# + title - Text shown at the top of the grid
+# + items - The items to display in the grid
+# + borderStyle - The border style to apply to each grid item
+# + columnCount - Number of columns in the grid
+# + onClick - Action triggered when any grid item is clicked (unless the item has its own onClick)
+public type Grid record {
+    string title?;
+    GridItem[] items?;
+    BorderStyle borderStyle?;
+    int columnCount?;
+    OnClick onClick?;
+};
+
+# An item in a grid widget.
+#
+# + id - Identifier for the item, returned in the grid's onClick parameters
+# + image - The image displayed for the item
+# + title - Title text for the item
+# + subtitle - Subtitle text for the item
+# + layout - How the text is positioned relative to the image
+public type GridItem record {
+    string id?;
+    ImageComponent image?;
+    string title?;
+    string subtitle?;
+    GridItemLayout layout?;
+};
+
+# An image component used in grid and other widgets.
+#
+# + imageUri - The HTTPS URL of the image
+# + altText - Accessibility label for the image
+# + cropStyle - How to crop the image
+# + borderStyle - Border to apply to the image
+public type ImageComponent record {
+    string imageUri?;
+    string altText?;
+    ImageCropStyle cropStyle?;
+    BorderStyle borderStyle?;
+};
+
+# Defines how an image is cropped.
+#
+# + type - The crop type (SQUARE, CIRCLE, RECTANGLE_CUSTOM, etc.)
+# + aspectRatio - Aspect ratio for RECTANGLE_CUSTOM crop type (width / height)
+public type ImageCropStyle record {
+    ImageCropType 'type?;
+    float aspectRatio?;
+};
+
+# Border style applied to a widget or image.
+#
+# + type - The border type (NO_BORDER or STROKE)
+# + strokeColor - The color of the border stroke
+# + cornerRadius - The corner radius in pixels
+public type BorderStyle record {
+    BorderType 'type?;
+    Color strokeColor?;
+    int cornerRadius?;
+};
+
+# A columns layout widget containing up to 2 columns.
+#
+# + columnItems - The columns to display
+public type Columns record {
+    Column[] columnItems?;
+};
+
+# A single column within a Columns widget.
+#
+# + horizontalSizeStyle - How the column sizes itself horizontally
+# + horizontalAlignment - Horizontal alignment of widgets within the column
+# + verticalAlignment - Vertical alignment of widgets within the column
+# + widgets - The widgets within this column
+public type Column record {
+    HorizontalSizeStyle horizontalSizeStyle?;
+    HorizontalAlignment horizontalAlignment?;
+    VerticalAlignment verticalAlignment?;
+    Widget[] widgets?;
+};
+
+# A carousel containing a collection of nested widgets.
+#
+# + carouselCards - The carousel cards to display
+public type Carousel record {
+    CarouselCard[] carouselCards?;
+};
+
+# A card within a carousel.
+#
+# + widgets - The main widgets in the carousel card
+# + footerWidgets - Footer widgets shown at the bottom of the carousel card
+public type CarouselCard record {
+    NestedWidget[] widgets?;
+    NestedWidget[] footerWidgets?;
+};
+
+# A widget that can be nested inside a CarouselCard.
+# Only a subset of widget types are supported.
+#
+# + textParagraph - A text paragraph
+# + buttonList - A list of buttons
+# + image - An image
+public type NestedWidget record {
+    TextParagraph textParagraph?;
+    ButtonList buttonList?;
+    Image image?;
+};
+
+# A list of chips.
+#
+# + layout - The layout of the chip list (WRAPPED or HORIZONTAL_SCROLLABLE)
+# + chips - The chips to display
+public type ChipList record {
+    ChipListLayout layout?;
+    Chip[] chips?;
+};
+
+# A single chip in a ChipList.
+#
+# + icon - The icon displayed in the chip
+# + label - The text label of the chip
+# + onClick - Action triggered when the chip is clicked
+# + disabled - Whether the chip is disabled
+# + altText - Accessibility label for the chip
+public type Chip record {
+    Icon icon?;
+    string label?;
+    OnClick onClick?;
+    boolean disabled?;
+    string altText?;
 };
 
 // ── Accessory Widget ────────────────────────────────────────────────────────────
@@ -766,12 +1393,28 @@ public type AccessoryWidget record {
 # + type - The type of response
 # + url - URL for user authentication or configuration
 # + dialogAction - The action for a dialog
-# + updatedWidget - An updated widget
+# + updatedWidget - Widget autocomplete results (for UPDATE_WIDGET response type)
 public type ActionResponse record {
     ResponseType 'type?;
     string url?;
     DialogAction dialogAction?;
-    json updatedWidget?;
+    UpdatedWidget updatedWidget?;
+};
+
+# Updated widget with autocomplete suggestions, returned for UPDATE_WIDGET responses.
+#
+# + widget - The ID of the updated widget
+# + suggestions - Input only. List of widget autocomplete results
+public type UpdatedWidget record {
+    string widget?;
+    SelectionItems suggestions?;
+};
+
+# A list of selection items for widget autocomplete.
+#
+# + items - The list of selection items
+public type SelectionItems record {
+    json[] items?;
 };
 
 # An action for a dialog.
@@ -818,15 +1461,17 @@ public type FormAction record {
 # + hostApp - The host app the add-on is active in
 # + platform - The platform of the user's client (WEB, IOS, ANDROID)
 # + timeZone - The user's timezone
-# + formInputs - Map of form inputs by widget name
-# + parameters - Map of parameters passed to the action
+# + formInputs - Map of widget ID to input values; value type depends on widget
+# + parameters - Map of additional parameters passed to the action
+# + invokedFunction - Name of the function invoked (for Chat apps)
 public type CommonEventObject record {
     string userLocale?;
     string hostApp?;
     string platform?;
     TimeZone timeZone?;
-    map<StringInputs> formInputs?;
+    map<Inputs> formInputs?;
     map<string> parameters?;
+    string invokedFunction?;
 };
 
 # Timezone information.
@@ -843,6 +1488,58 @@ public type TimeZone record {
 # + value - The list of string values
 public type StringInputs record {
     string[] value?;
+};
+
+# Date and time input values from a DateTimePicker widget that accepts both a date and time.
+#
+# + msSinceEpoch - Time since epoch, in milliseconds
+# + hasDate - Whether the input includes a calendar date
+# + hasTime - Whether the input includes a timestamp
+public type DateTimeInput record {
+    string msSinceEpoch?;
+    boolean hasDate?;
+    boolean hasTime?;
+};
+
+# Date input values from a DateTimePicker widget that only accepts date values.
+#
+# + msSinceEpoch - Time since epoch, in milliseconds
+public type DateInput record {
+    string msSinceEpoch?;
+};
+
+# Time input values from a DateTimePicker widget that only accepts time values.
+#
+# + hours - The hour on a 24-hour clock
+# + minutes - The number of minutes past the hour (0–59)
+public type TimeInput record {
+    int hours?;
+    int minutes?;
+};
+
+# Union of input types that a user can submit from a card or dialog widget.
+# Exactly one of the fields will be populated depending on the widget type.
+#
+# + stringInputs - String values from text inputs or selection inputs
+# + dateTimeInput - Date and time values from a date-time picker
+# + dateInput - Date-only values from a date picker
+# + timeInput - Time-only values from a time picker
+public type Inputs record {
+    StringInputs stringInputs?;
+    DateTimeInput dateTimeInput?;
+    DateInput dateInput?;
+    TimeInput timeInput?;
+};
+
+// ── App Command Metadata ─────────────────────────────────────────────────────────
+
+# Metadata about a Chat app command, present for APP_COMMAND interaction events.
+#
+# + appCommandId - The ID for the command specified in the Chat API configuration
+# + appCommandType - The type of Chat app command (slash or quick command)
+public type AppCommandMetadata record {
+    int appCommandId?;
+    AppCommandType appCommandType?;
 };
 
 // ── List Responses ──────────────────────────────────────────────────────────────
