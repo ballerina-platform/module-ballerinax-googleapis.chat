@@ -141,7 +141,8 @@ isolated function validateGoogleIdToken(string token, string expectedAudience,
 # Verifies a self-signed JWT bearer token (`ProjectNumberConfig` approach).
 #
 # The token must:
-# - Be signed by `chat@system.gserviceaccount.com` (validated via its X.509 certs)
+# - Be signed by `chat@system.gserviceaccount.com` (validated via the Chat
+#   service account's published JWKS)
 # - Have `issuer` == `chat@system.gserviceaccount.com`
 # - Have `audience` matching the configured GCP project number
 #
@@ -154,7 +155,9 @@ isolated function verifyProjectNumberJwt(string token,
         issuer: CHAT_ISSUER,
         audience: expectedAudience,
         signatureConfig: {
-            certFile: GOOGLE_SA_CERTS_URL
+            jwksConfig: {
+                url: GOOGLE_SA_JWKS_URL
+            }
         }
     };
 

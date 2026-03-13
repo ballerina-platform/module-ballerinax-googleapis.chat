@@ -89,8 +89,12 @@ const string GOOGLE_OIDC_ISSUER_URL = "https://accounts.google.com";
 # Google OIDC public keys URL (for ID Token verification).
 const string GOOGLE_OIDC_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs";
 
-# Google service account public certificates URL (for Project Number JWT verification).
-const string GOOGLE_SA_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/metadata/x509/chat@system.gserviceaccount.com";
+# Google Chat service account JWKS URL (for Project Number JWT verification).
+#
+# Google Chat docs primarily show the X.509 certs endpoint for this flow, but
+# the corresponding JWKS endpoint is also published and works directly with
+# Ballerina JWT validation via `jwksConfig.url`.
+const string GOOGLE_SA_JWKS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/chat@system.gserviceaccount.com";
 
 // ── Event Type Constants ────────────────────────────────────────────────────────
 
