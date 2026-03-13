@@ -22,10 +22,19 @@ import ballerina/http;
 
 # Configuration for the Google Chat trigger listener.
 #
-# The listener creates a Pub/Sub push subscription on a pre-existing topic and
-# receives Google Chat interaction events via webhook push delivery. The topic
-# must already exist and be configured in the Google Chat app connection settings
-# in Google Cloud Console.
+# The listener supports two delivery modes, selected via the `@ServiceConfig`
+# annotation on the attached service:
+#
+# - **Pub/Sub mode** (`PubSubConfig`): The listener auto-creates a push
+#   subscription on a pre-existing topic, receives events via webhook push,
+#   and deletes the subscription on shutdown.
+# - **HTTP mode** (`HttpEndpointUrlConfig` or `ProjectNumberConfig`): The
+#   listener receives interaction events directly from Google Chat over HTTP.
+#   No Pub/Sub resources are managed.
+#
+# In both modes the `auth` credentials are used to create the internal
+# `Caller` client (for responding to events via the Chat API). In Pub/Sub mode
+# the same credentials are also used for Pub/Sub subscription management.
 #
 # **For service account auth**: You can use one of three forms:
 # - `ServiceAccountConfig` with `issuer` plus a PEM/private-key config
@@ -33,16 +42,15 @@ import ballerina/http;
 # - `ServiceAccountFileConfig` with the path to the JSON key file
 #
 # **For OAuth2 auth**: Create OAuth2 credentials in Google Cloud Console and
-# obtain a refresh token with the `https://www.googleapis.com/auth/pubsub` scope.
+# obtain a refresh token with the `https://www.googleapis.com/auth/chat.bot` scope.
 #
-# **For bearer token auth**: Provide a pre-obtained OAuth2 access token with the
-# `https://www.googleapis.com/auth/pubsub` scope. Note that Google access tokens
-# expire after ~1 hour; if the listener runs longer than that, the subscription
-# cleanup call on `Listener.gracefulStop()` may fail (the subscription will be orphaned,
-# same as a hard exit).
+# **For bearer token auth**: Provide a pre-obtained OAuth2 access token.
+# Note that Google access tokens expire after ~1 hour; if the listener runs
+# longer, the `Caller` and (in Pub/Sub mode) the subscription cleanup call on
+# `Listener.gracefulStop()` may fail.
 #
-# + auth - Authentication for Pub/Sub subscription management (service account,
-#           OAuth2 with auto-refresh, or a pre-obtained bearer token)
+# + auth - Authentication for the Chat API client and (in Pub/Sub mode) for
+#           Pub/Sub subscription management (service account, OAuth2, or bearer token)
 # + secureSocketConfig - Optional SSL/TLS configuration for the HTTP listener
 @display {label: "Listener Config"}
 public type ListenerConfig record {
@@ -56,25 +64,106 @@ public type ListenerConfig record {
 // Service Annotation
 // ═══════════════════════════════════════════════════════════════════════════════
 
-# Service-level configuration for the Google Chat trigger.
+# Pub/Sub-based configuration for the Google Chat trigger.
 #
-# Apply this annotation to the `chat:ChatService` to specify the Pub/Sub topic
-# and the public callback URL that Pub/Sub will push events to.
+# Use this when your Chat app receives events via Google Cloud Pub/Sub push
+# subscriptions (e.g., when running behind a firewall or subscribing to
+# Google Workspace Events). The listener automatically creates a push
+# subscription on the given topic and deletes it on shutdown.
+#
+# The topic must already exist and be configured as the connection target
+# in the Google Chat API configuration page in Google Cloud Console.
 #
 # + topicName - Fully qualified Pub/Sub topic resource name that the Chat app
 #               is configured to publish to. Format:
 #               `projects/<project-id>/topics/<topic-name>`.
-#               Create this topic once in Google Cloud Console and configure
-#               it in the Chat app connection settings.
-# + callbackURL - The public URL where Pub/Sub will push events to this listener.
-#                 In development, use a tunnel like ngrok (e.g., `https://abc.ngrok.io/webhook`).
+# + callbackURL - The public URL where Pub/Sub will push events. In development,
+#                 use a tunnel like ngrok (e.g., `https://abc.ngrok.io/webhook`).
 #                 In production, use your deployed service URL.
-public type ServiceConfiguration record {|
+@display {label: "Pub/Sub Config"}
+public type PubSubConfig record {|
     @display {label: "Pub/Sub Topic Name"}
     string topicName;
     @display {label: "Callback URL"}
     string callbackURL;
 |};
+
+# HTTP mode configuration that verifies bearer tokens using the HTTP endpoint URL
+# as the audience (Google's recommended approach).
+#
+# Use this when your Chat app configuration in Google Cloud Console has
+# **Authentication Audience** set to **HTTP endpoint URL**. Google Chat will
+# send a Google-signed OIDC ID token whose `aud` claim matches the endpoint URL.
+#
+# + endpointUrl - The public HTTPS URL of this listener, exactly as entered in
+#                 the **HTTP endpoint URL** field of the Chat app configuration
+#                 (e.g., `"https://my-app.example.com"`). The listener validates
+#                 the `aud` claim of every incoming bearer token against this value.
+@display {label: "HTTP Endpoint URL Config"}
+public type HttpEndpointUrlConfig record {|
+    @display {label: "Endpoint URL"}
+    string endpointUrl;
+|};
+
+# HTTP mode configuration that verifies bearer tokens using the GCP project
+# number as the audience.
+#
+# Use this when your Chat app configuration in Google Cloud Console has
+# **Authentication Audience** set to **Project Number**. Google Chat will send
+# a self-signed JWT whose `aud` claim matches the GCP project number.
+#
+# + projectNumber - The GCP project number used to build the Chat app, as a
+#                   string (e.g., `"1234567890"`). The listener validates the
+#                   `aud` claim of every incoming bearer token against this value.
+@display {label: "Project Number Config"}
+public type ProjectNumberConfig record {|
+    @display {label: "Project Number"}
+    string projectNumber;
+|};
+
+# HTTP-based configuration for the Google Chat trigger.
+#
+# A union of the two supported bearer token verification approaches:
+#
+# - `HttpEndpointUrlConfig` (recommended): bearer token is a Google-signed OIDC
+#   ID token; audience is your HTTP endpoint URL.
+# - `ProjectNumberConfig`: bearer token is a self-signed JWT; audience is your
+#   GCP project number.
+#
+# Choose the variant that matches the **Authentication Audience** setting in your
+# Chat app configuration in Google Cloud Console.
+public type HttpConfig HttpEndpointUrlConfig|ProjectNumberConfig;
+
+# Service-level configuration for the Google Chat trigger.
+#
+# A union of the three supported delivery configurations. Apply one to the
+# `@chat:ServiceConfig` annotation on your `chat:ChatService`.
+#
+# **Pub/Sub mode** — events arrive via Google Cloud Pub/Sub push:
+# ```ballerina
+# @chat:ServiceConfig {
+#     topicName: "projects/my-project/topics/my-chat-topic",
+#     callbackURL: "https://my-app.example.com/webhook"
+# }
+# service chat:ChatService on chatListener { ... }
+# ```
+#
+# **HTTP mode — endpoint URL verification** (recommended):
+# ```ballerina
+# @chat:ServiceConfig {
+#     endpointUrl: "https://my-app.example.com"
+# }
+# service chat:ChatService on chatListener { ... }
+# ```
+#
+# **HTTP mode — project number verification:**
+# ```ballerina
+# @chat:ServiceConfig {
+#     projectNumber: "1234567890"
+# }
+# service chat:ChatService on chatListener { ... }
+# ```
+public type ServiceConfiguration PubSubConfig|HttpConfig;
 
 # Annotation for service-level Google Chat trigger configuration.
 public annotation ServiceConfiguration ServiceConfig on service;

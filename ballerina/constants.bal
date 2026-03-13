@@ -75,6 +75,23 @@ const string CHAT_MEMBERSHIPS_SCOPE = "https://www.googleapis.com/auth/chat.memb
 # OAuth2 scope for reading Chat memberships (user auth).
 const string CHAT_MEMBERSHIPS_READONLY_SCOPE = "https://www.googleapis.com/auth/chat.memberships.readonly";
 
+// ── HTTP Mode Verification ──────────────────────────────────────────────────────
+
+# Google Chat service account email used as the bearer token issuer.
+const string CHAT_ISSUER = "chat@system.gserviceaccount.com";
+
+# Accepted issuer for Google OIDC ID tokens.
+const string GOOGLE_OIDC_ISSUER = "accounts.google.com";
+
+# Accepted issuer for Google OIDC ID tokens when expressed as a URL.
+const string GOOGLE_OIDC_ISSUER_URL = "https://accounts.google.com";
+
+# Google OIDC public keys URL (for ID Token verification).
+const string GOOGLE_OIDC_CERTS_URL = "https://www.googleapis.com/oauth2/v3/certs";
+
+# Google service account public certificates URL (for Project Number JWT verification).
+const string GOOGLE_SA_CERTS_URL = "https://www.googleapis.com/service_accounts/v1/metadata/x509/chat@system.gserviceaccount.com";
+
 // ── Event Type Constants ────────────────────────────────────────────────────────
 
 # Event type string for a message event.
@@ -106,6 +123,7 @@ const string LOG_EVENT_DISPATCHED = "Chat event dispatched: ";
 
 const string WARN_UNKNOWN_SUBSCRIPTION = "Received push notification from unknown subscription: ";
 const string WARN_UNKNOWN_EVENT_TYPE = "Received unknown event type: ";
+const string WARN_HTTP_AUTH_FAILED = "Rejected request: bearer token verification failed";
 
 // ── Error Messages ──────────────────────────────────────────────────────────────
 
@@ -114,3 +132,5 @@ const string ERR_EVENT_DISPATCH = "Failed to dispatch Chat event.";
 const string ERR_PAYLOAD_PARSE = "Failed to parse Pub/Sub message payload.";
 const string ERR_SERVICE_ATTACH = "Service has already been attached.";
 const string ERR_SERVICE_DETACH = "Cannot detach service. Service has not been attached.";
+const string ERR_BEARER_TOKEN_MISSING = "Missing or malformed Authorization header. Expected 'Bearer <token>'.";
+const string ERR_BEARER_TOKEN_INVALID = "Bearer token verification failed: token was not issued by Google Chat.";

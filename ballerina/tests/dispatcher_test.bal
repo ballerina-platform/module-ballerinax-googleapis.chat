@@ -121,6 +121,109 @@ function testDispatchWithNoServiceAttached() returns error? {
     test:assertTrue(true);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// HTTP Mode Dispatcher Tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Test that DispatcherService initializes correctly in HTTP endpoint URL mode.
+@test:Config {}
+function testDispatcherServiceInitHttpMode() returns error? {
+    Client testClient = check createTestClient();
+    HttpEndpointUrlConfig httpCfg = {
+        endpointUrl: "https://my-app.example.com"
+    };
+    DispatcherService _ = new ("", testClient, httpCfg);
+    test:assertTrue(true);
+}
+
+// Test that setHttpConfig accepts an HttpEndpointUrlConfig.
+@test:Config {}
+function testDispatcherSetHttpConfig() returns error? {
+    Client testClient = check createTestClient();
+    DispatcherService dispatcher = new ("", testClient);
+
+    HttpEndpointUrlConfig httpCfg = {
+        endpointUrl: "https://my-app.example.com"
+    };
+    dispatcher.setHttpConfig(httpCfg);
+    // No error means the config was accepted.
+    test:assertTrue(true);
+}
+
+// Test that setHttpConfig accepts a ProjectNumberConfig.
+@test:Config {}
+function testDispatcherSetHttpConfigProjectNumber() returns error? {
+    Client testClient = check createTestClient();
+    DispatcherService dispatcher = new ("", testClient);
+
+    ProjectNumberConfig httpCfg = {
+        projectNumber: "1234567890"
+    };
+    dispatcher.setHttpConfig(httpCfg);
+    test:assertTrue(true);
+}
+
+// Test dispatching a MESSAGE event in HTTP mode (no service registered).
+@test:Config {}
+function testHttpModeDispatchWithNoServiceAttached() returns error? {
+    Client testClient = check createTestClient();
+    HttpEndpointUrlConfig httpCfg = {
+        endpointUrl: "https://my-app.example.com"
+    };
+    DispatcherService dispatcher = new ("", testClient, httpCfg);
+
+    ChatEvent event = {
+        'type: MESSAGE,
+        message: {text: "Hello from HTTP mode"}
+    };
+    // Should not error — silently returns when no service is registered.
+    check dispatcher.dispatch(event);
+    test:assertTrue(true);
+}
+
+// Test that extractBearerToken correctly parses a well-formed Authorization header.
+@test:Config {}
+function testExtractBearerTokenValid() returns error? {
+    http:Request req = new;
+    req.setHeader("Authorization", "Bearer test-token-value");
+    string token = check extractBearerToken(req);
+    test:assertEquals(token, "test-token-value");
+}
+
+// Test that extractBearerToken returns an error when Authorization header is absent.
+@test:Config {}
+function testExtractBearerTokenMissingHeader() {
+    http:Request req = new;
+    string|AuthenticationError result = extractBearerToken(req);
+    test:assertTrue(result is AuthenticationError);
+    if result is AuthenticationError {
+        test:assertTrue(result.message().includes("Authorization"));
+    }
+}
+
+// Test that extractBearerToken returns an error for a non-Bearer scheme.
+@test:Config {}
+function testExtractBearerTokenWrongScheme() {
+    http:Request req = new;
+    req.setHeader("Authorization", "Basic dXNlcjpwYXNz");
+    string|AuthenticationError result = extractBearerToken(req);
+    test:assertTrue(result is AuthenticationError);
+}
+
+// Test that extractBearerToken returns an error when the token value is empty.
+@test:Config {}
+function testExtractBearerTokenEmptyValue() {
+    http:Request req = new;
+    req.setHeader("Authorization", "Bearer ");
+    string|AuthenticationError result = extractBearerToken(req);
+    test:assertTrue(result is AuthenticationError);
+}
+
+// Note: Full verifyChatBearerToken tests (ID Token and Project Number JWT)
+// require a real Google-signed token and cannot be run as offline unit tests.
+// ID token verification accepts both `accounts.google.com` and
+// `https://accounts.google.com` issuers. These are covered by integration tests.
+
 // Note: Dispatch tests that verify actual remote function invocation on the
 // MockChatService require the native Java dispatcher to be available at
 // runtime. Testing the full dispatch flow requires integration tests with

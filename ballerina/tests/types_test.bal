@@ -608,6 +608,69 @@ function testCardConstruction() {
     test:assertEquals((<Widget[]>section.widgets).length(), 2);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ServiceConfiguration Union Type Tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@test:Config {}
+function testPubSubConfigRecordCreation() {
+    PubSubConfig config = {
+        topicName: "projects/my-project/topics/my-topic",
+        callbackURL: "https://my-app.example.com/webhook"
+    };
+    test:assertEquals(config.topicName, "projects/my-project/topics/my-topic");
+    test:assertEquals(config.callbackURL, "https://my-app.example.com/webhook");
+}
+
+@test:Config {}
+function testHttpEndpointUrlConfigRecordCreation() {
+    HttpEndpointUrlConfig config = {
+        endpointUrl: "https://my-app.example.com"
+    };
+    test:assertEquals(config.endpointUrl, "https://my-app.example.com");
+}
+
+@test:Config {}
+function testProjectNumberConfigRecordCreation() {
+    ProjectNumberConfig config = {
+        projectNumber: "1234567890"
+    };
+    test:assertEquals(config.projectNumber, "1234567890");
+}
+
+@test:Config {}
+function testServiceConfigurationUnionIsPubSub() {
+    ServiceConfiguration cfg = {
+        topicName: "projects/p/topics/t",
+        callbackURL: "https://example.com/webhook"
+    };
+    test:assertTrue(cfg is PubSubConfig);
+    test:assertFalse(cfg is HttpEndpointUrlConfig);
+    test:assertFalse(cfg is ProjectNumberConfig);
+}
+
+@test:Config {}
+function testServiceConfigurationUnionIsHttpEndpointUrl() {
+    ServiceConfiguration cfg = {
+        endpointUrl: "https://example.com"
+    };
+    test:assertTrue(cfg is HttpEndpointUrlConfig);
+    test:assertTrue(cfg is HttpConfig);
+    test:assertFalse(cfg is PubSubConfig);
+    test:assertFalse(cfg is ProjectNumberConfig);
+}
+
+@test:Config {}
+function testServiceConfigurationUnionIsProjectNumber() {
+    ServiceConfiguration cfg = {
+        projectNumber: "1234567890"
+    };
+    test:assertTrue(cfg is ProjectNumberConfig);
+    test:assertTrue(cfg is HttpConfig);
+    test:assertFalse(cfg is PubSubConfig);
+    test:assertFalse(cfg is HttpEndpointUrlConfig);
+}
+
 @test:Config {}
 function testActionResponseDialog() {
     ActionResponse response = {

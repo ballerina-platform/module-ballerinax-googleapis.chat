@@ -31,3 +31,7 @@ public type DispatchError distinct error;
 
 # Represents an error when payload parsing or validation fails.
 public type PayloadValidationError distinct error;
+
+# Represents an error when a request from Google Chat fails bearer token verification.
+# Returned when an incoming HTTP request does not carry a valid Google-signed token.
+public type AuthenticationError distinct error;

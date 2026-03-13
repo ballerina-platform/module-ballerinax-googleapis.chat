@@ -19,26 +19,45 @@ import ballerina/jballerina.java;
 import ballerina/lang.'array;
 import ballerina/log;
 
-# Internal HTTP service that receives Pub/Sub push notifications and dispatches
-# them to the registered `ChatService` implementation.
+# Internal HTTP service that receives Google Chat interaction events and
+# dispatches them to the registered `ChatService` implementation.
 #
-# Unlike the Gmail trigger (which only receives a historyId and must fetch full
-# data from the Gmail API), the Google Chat Pub/Sub push delivers the **complete
-# interaction event payload** in the message data. This means no secondary API
-# calls are needed to get the event details.
+# Two delivery modes are supported, selected when the listener attaches a
+# service via `@ServiceConfig`:
+#
+# **Pub/Sub mode** (`PubSubConfig`):
+# Pub/Sub pushes a JSON envelope to the `/webhook` resource. The event payload
+# is base64-encoded inside the `message.data` field of the envelope. No
+# secondary API call is needed — the full Chat event is embedded in the push.
+# The incoming subscription name is validated against the one created at startup.
+#
+# **HTTP mode** (`HttpEndpointUrlConfig` or `ProjectNumberConfig`):
+# Google Chat sends a POST request with the raw Chat event JSON to the root
+# resource (`/`). The `Authorization` header carries a Google-signed bearer
+# token that is verified before the event is processed. Requests that fail
+# verification are rejected with HTTP 401.
 service class DispatcherService {
     *http:Service;
     private map<GenericServiceType> services = {};
     private string subscriptionResource;
     private final Client chatClient;
+    # Set to the `HttpConfig` when operating in HTTP mode; `()` in Pub/Sub mode.
+    private HttpConfig? httpConfig;
 
-    isolated function init(string subscriptionResource, Client chatClient) {
+
+    isolated function init(string subscriptionResource, Client chatClient,
+            HttpConfig? httpConfig = ()) {
         self.subscriptionResource = subscriptionResource;
         self.chatClient = chatClient;
+        self.httpConfig = httpConfig;
     }
 
     isolated function setSubscriptionResource(string subscriptionResource) {
         self.subscriptionResource = subscriptionResource;
+    }
+
+    isolated function setHttpConfig(HttpConfig httpConfig) {
+        self.httpConfig = httpConfig;
     }
 
     isolated function addServiceRef(string serviceType, GenericServiceType genericService) returns error? {
@@ -58,6 +77,10 @@ service class DispatcherService {
     isolated function hasServiceRefs() returns boolean {
         return self.services.length() > 0;
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Pub/Sub mode handler
+    // ─────────────────────────────────────────────────────────────────────────
 
     # Handles incoming Pub/Sub push notifications.
     #
@@ -105,6 +128,62 @@ service class DispatcherService {
         // Acknowledge the Pub/Sub message
         check httpCaller->respond(http:STATUS_OK);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HTTP mode handler
+    // ─────────────────────────────────────────────────────────────────────────
+
+    # Handles direct HTTP POST requests from Google Chat (HTTP mode).
+    #
+    # Google Chat sends the raw Chat event JSON as the request body. Before
+    # processing, the bearer token in the `Authorization` header is verified to
+    # confirm the request originates from Google Chat. Requests that fail
+    # verification are rejected with HTTP 401 Unauthorized.
+    #
+    # + httpCaller - The HTTP caller to respond to
+    # + request - The incoming HTTP request from Google Chat
+    # + return - An error if processing fails
+    resource isolated function post .(http:Caller httpCaller, http:Request request) returns error? {
+        HttpConfig? cfg = self.httpConfig;
+        if cfg is () {
+            // HTTP mode resource invoked but not configured — reject silently
+            log:printWarn("Received request on HTTP endpoint but listener is not in HTTP mode");
+            check httpCaller->respond(http:STATUS_NOT_FOUND);
+            return;
+        }
+
+        // Verify the bearer token before processing the event
+        string|AuthenticationError bearerToken = extractBearerToken(request);
+        if bearerToken is AuthenticationError {
+            log:printWarn(WARN_HTTP_AUTH_FAILED, 'error = bearerToken);
+            check httpCaller->respond(http:STATUS_UNAUTHORIZED);
+            return;
+        }
+
+        true|AuthenticationError verified = verifyChatBearerToken(bearerToken, cfg);
+        if verified is AuthenticationError {
+            log:printWarn(WARN_HTTP_AUTH_FAILED, 'error = verified);
+            check httpCaller->respond(http:STATUS_UNAUTHORIZED);
+            return;
+        }
+
+        // Parse the raw Chat event JSON directly (no Pub/Sub envelope)
+        json reqPayload = check request.getJsonPayload();
+        log:printDebug(LOG_EVENT_DECODED + reqPayload.toJsonString());
+
+        ChatEvent chatEvent = check reqPayload.cloneWithType(ChatEvent);
+        log:printInfo(LOG_EVENT_RECEIVED + chatEvent.'type.toString());
+
+        // Dispatch to the appropriate handler
+        check self.dispatch(chatEvent);
+
+        json emptyResponse = {};
+        check httpCaller->respond(emptyResponse);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Shared dispatch logic
+    // ─────────────────────────────────────────────────────────────────────────
 
     # Dispatches a Chat event to the appropriate remote function on the
     # registered ChatService based on the event type.
