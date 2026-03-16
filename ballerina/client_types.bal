@@ -247,7 +247,7 @@ public type ListMessagesQueries record {
 # + updateMask - The field paths to update (comma-separated)
 # + allowMissing - If true, create the message if it doesn't exist
 public type UpdateMessageQueries record {
-    string updateMask?;
+    string updateMask = "text";
     boolean allowMissing?;
 };
 

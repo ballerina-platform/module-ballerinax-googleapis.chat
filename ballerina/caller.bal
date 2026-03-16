@@ -28,6 +28,7 @@
 #     sent.text = "Updated";
 #     check caller->updateMessage(sent, updateMask = "text");
 # }
+# ```
 #
 # The `Caller` only exposes operations supported for Chat app authentication.
 # It wraps an internal `chat:Client` with credentials from the listener
@@ -96,28 +97,17 @@ public isolated client class Caller {
             fallbackText: message.fallbackText,
             accessoryWidgets: message.accessoryWidgets
         };
-        if queries.updateMask is string {
-            if queries.allowMissing is boolean {
-                return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].put(
-                    request,
-                    updateMask = <string>queries.updateMask,
-                    allowMissing = <boolean>queries.allowMissing
-                );
-            }
-            return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].put(
-                request,
-                updateMask = <string>queries.updateMask
-            );
-        }
-
         if queries.allowMissing is boolean {
-            return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].put(
+            return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
                 request,
+                updateMask = queries.updateMask,
                 allowMissing = <boolean>queries.allowMissing
             );
         }
-
-        return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].put(request);
+        return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
+            request,
+            updateMask = queries.updateMask
+        );
     }
 
     # Deletes a bot-accessible message in the same space.

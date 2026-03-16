@@ -229,14 +229,14 @@ public isolated client class Client {
         return self.httpClient->get(path, targetType = Message);
     }
 
-    # Updates a message. Allows updating the text, cards, and attachments.
+    # Updates a message using PATCH. Allows updating the text, cards, and attachments.
     #
     # + spaceId - The ID of the space
     # + messageId - The ID of the message to update
     # + payload - The updated message fields
     # + queries - Query parameters (updateMask, allowMissing)
     # + return - The updated message or an error
-    resource isolated function put spaces/[string spaceId]/messages/[string messageId](
+    resource isolated function patch spaces/[string spaceId]/messages/[string messageId](
             UpdateMessageRequest payload,
             *UpdateMessageQueries queries) returns Message|error {
         string path = "/spaces/" + spaceId + "/messages/" + messageId;
@@ -250,7 +250,7 @@ public isolated client class Client {
         if queryParts.length() > 0 {
             path = path + "?" + string:'join("&", ...queryParts);
         }
-        return self.httpClient->put(path, payload, targetType = Message);
+        return self.httpClient->patch(path, payload, targetType = Message);
     }
 
     # Deletes a message.
