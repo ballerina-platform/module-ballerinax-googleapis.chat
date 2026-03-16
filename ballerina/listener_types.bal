@@ -209,6 +209,24 @@ public type ChatEvent record {
     AppCommandMetadata appCommandMetadata?;
 };
 
+# A Google Chat message interaction event with a guaranteed non-optional `message` field.
+#
+# Use this instead of `ChatEvent` as the parameter type for `onMessage` when you want
+# compile-time assurance that `message` is present, avoiding nil-check operators on access.
+#
+# **Example:**
+# ```ballerina
+# remote function onMessage(chat:MessageEvent event, chat:Caller caller) returns error? {
+#     string text = event.message.text ?: "(no text)";  // no ?. needed on .message
+# }
+# ```
+#
+# + message - The message that triggered the event (always present for MESSAGE events)
+public type MessageEvent record {
+    *ChatEvent;
+    Message message;
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chat Service Interface
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -232,7 +250,9 @@ public type ChatEvent record {
 # ```
 #
 # **Available event handlers:**
-# - `onMessage` - A user sends a message (DM, @mention, slash command)
+# - `onMessage` - A user sends a message (DM, @mention, slash command).
+#                 Accepts `ChatEvent` or `MessageEvent` as the event parameter.
+#                 Use `MessageEvent` for compile-time guarantee that `message` is non-nil.
 # - `onAddedToSpace` - The app is added to a space
 # - `onRemovedFromSpace` - The app is removed from a space
 # - `onCardClicked` - A user clicks a button/card element

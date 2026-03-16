@@ -55,6 +55,7 @@ public final class ChatEventDispatcher {
 
     private static final PrintStream ERR_OUT = System.err;
     private static final String CHAT_EVENT_RECORD = "ChatEvent";
+    private static final String MESSAGE_EVENT_RECORD = "MessageEvent";
     private static final String CALLER_OBJECT = "Caller";
     private static final String ORG_NAME = "ballerinax";
     private static final String MODULE_NAME = "googleapis.chat";
@@ -118,7 +119,9 @@ public final class ChatEventDispatcher {
                 callerFound = true;
                 args[i] = createCallerObject(chatClient, spaceId);
             } else if (referredType.getTag() == TypeTags.RECORD_TYPE_TAG &&
-                    CHAT_EVENT_RECORD.equals(referredType.getName())) {
+                    (CHAT_EVENT_RECORD.equals(referredType.getName()) ||
+                     MESSAGE_EVENT_RECORD.equals(referredType.getName()) ||
+                     FUNC_ON_MESSAGE.equals(functionName))) {
                 args[i] = chatEvent;
             } else {
                 logInvalidSignature(functionName, "unsupported parameter type '" + referredType.getName() + "'");
@@ -181,7 +184,7 @@ public final class ChatEventDispatcher {
                         "' in ChatService. Allowed methods are: onMessage, onAddedToSpace, onRemovedFromSpace, " +
                         "onCardClicked, onWidgetUpdated, onAppCommand, onAppHome, onSubmitForm");
             }
-            BError validationError = validateRemoteMethod(remoteMethod);
+            BError validationError = validateRemoteMethod(remoteMethod, methodName);
             if (validationError != null) {
                 return validationError;
             }
@@ -189,18 +192,24 @@ public final class ChatEventDispatcher {
         return null;
     }
 
-    private static BError validateRemoteMethod(RemoteMethodType remoteMethod) {
+    private static BError validateRemoteMethod(RemoteMethodType remoteMethod, String methodName) {
         Parameter[] parameters = remoteMethod.getParameters();
-        String methodName = remoteMethod.getName();
         if (parameters.length < 1 || parameters.length > 2) {
             return createValidationError("Invalid parameter count for remote method '" + methodName +
                     "'. Expected (ChatEvent) or (ChatEvent, Caller)");
         }
 
+        boolean isOnMessage = FUNC_ON_MESSAGE.equals(methodName);
         Type firstType = TypeUtils.getReferredType(parameters[0].type);
-        if (firstType.getTag() != TypeTags.RECORD_TYPE_TAG || !CHAT_EVENT_RECORD.equals(firstType.getName())) {
+        // For onMessage, accept any record type — covers ChatEvent, MessageEvent, and any user-defined
+        // subtypes. The Ballerina compiler enforces structural compatibility at compile time, so whatever
+        // record reaches here is already guaranteed to be structurally valid.
+        // For all other handlers, require exactly ChatEvent by name.
+        boolean isValidFirstParam = firstType.getTag() == TypeTags.RECORD_TYPE_TAG &&
+                (isOnMessage || CHAT_EVENT_RECORD.equals(firstType.getName()));
+        if (!isValidFirstParam) {
             return createValidationError("Invalid first parameter for remote method '" + methodName +
-                    "'. Expected ChatEvent");
+                    "'. Expected " + (isOnMessage ? "ChatEvent or MessageEvent" : "ChatEvent"));
         }
 
         if (parameters.length == 2) {
