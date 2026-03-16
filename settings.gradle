@@ -41,8 +41,8 @@ plugins {
     id "com.gradle.enterprise" version "3.13.2"
 }
 
-def projectName = "googlechat"
-rootProject.name = "module-ballerinax-googleapis.${projectName}"
+def projectName = "googleapis.chat"
+rootProject.name = "module-ballerinax-googleapis.chat"
 
 include ':checkstyle'
 include ":${projectName}-native"

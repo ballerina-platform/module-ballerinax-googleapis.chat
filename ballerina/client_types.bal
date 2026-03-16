@@ -36,7 +36,7 @@ import ballerina/jwt;
 #
 # **Example:**
 # ```ballerina
-# googlechat:ServiceAccountConfig saConfig = {
+# chat:ServiceAccountConfig saConfig = {
 #     issuer: "my-bot@my-project.iam.gserviceaccount.com",
 #     signatureConfig: {
 #         config: { keyFile: "/path/to/private-key.pem" }
@@ -63,7 +63,7 @@ public type ServiceAccountConfig record {|
 #
 # **Example:**
 # ```ballerina
-# googlechat:ServiceAccountCredentials saCredentials = {
+# chat:ServiceAccountCredentials saCredentials = {
 #     client_email: "my-bot@my-project.iam.gserviceaccount.com",
 #     private_key: string `-----BEGIN PRIVATE KEY-----
 # ...

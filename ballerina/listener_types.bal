@@ -222,11 +222,11 @@ public type ChatEvent record {
 # Each handler can accept just the event, or both the event and a `Caller`:
 # ```ballerina
 # // Without Caller (event-only)
-# remote function onMessage(googlechat:ChatEvent event) returns error? { ... }
+# remote function onMessage(chat:ChatEvent event) returns error? { ... }
 #
 # // With Caller (enables bot-safe message and space operations)
-# remote function onMessage(googlechat:ChatEvent event, googlechat:Caller caller) returns error? {
-#     googlechat:Message message = check caller->reply("Hello!");
+# remote function onMessage(chat:ChatEvent event, chat:Caller caller) returns error? {
+#     chat:Message message = check caller->reply("Hello!");
 #     check caller->deleteMessage(message);
 # }
 # ```

@@ -23,15 +23,14 @@
 #
 # **Example:**
 # ```ballerina
-# remote function onMessage(googlechat:ChatEvent event, googlechat:Caller caller) returns error? {
-#     googlechat:Message sent = check caller->reply("Got your message!");
+# remote function onMessage(chat:ChatEvent event, chat:Caller caller) returns error? {
+#     chat:Message sent = check caller->reply("Got your message!");
 #     sent.text = "Updated";
 #     check caller->updateMessage(sent, updateMask = "text");
 # }
-# ```
 #
 # The `Caller` only exposes operations supported for Chat app authentication.
-# It wraps an internal `googlechat:Client` with credentials from the listener
+# It wraps an internal `chat:Client` with credentials from the listener
 # configuration. You do **not** need to create a separate client.
 @display {label: "Google Chat Caller"}
 public isolated client class Caller {

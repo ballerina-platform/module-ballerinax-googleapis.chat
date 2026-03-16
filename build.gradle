@@ -59,8 +59,8 @@ allprojects {
 }
 
 task build {
-    dependsOn(':googlechat-native:build')
-    dependsOn(':googlechat-ballerina:build')
+    dependsOn(':googleapis.chat-native:build')
+    dependsOn(':googleapis.chat-ballerina:build')
 }
 
 def moduleVersion = project.version.replace("-SNAPSHOT", "")

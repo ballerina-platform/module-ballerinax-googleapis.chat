@@ -24,7 +24,7 @@ plugins {
 
 description = 'Ballerina - Google Chat Connector'
 
-def packageName = "googleapis.googlechat"
+def packageName = "googleapis.chat"
 def packageOrg = "ballerinax"
 def tomlVersion = stripBallerinaExtensionVersion("${project.version}")
 def ballerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/Ballerina.toml")
@@ -97,7 +97,7 @@ clean {
 
 build.dependsOn "generatePomFileForMavenPublication"
 tasks.matching { it.name in ["test", "build"] }.configureEach {
-    dependsOn ":googlechat-native:build"
+    dependsOn ":googleapis.chat-native:build"
 }
 publishToMavenLocal.dependsOn build
 publish.dependsOn build

@@ -279,10 +279,10 @@ isolated function extractSpaceId(ChatEvent chatEvent) returns string|error {
 isolated function nativeInvokeRemoteFunction(ChatEvent chatEvent, Client chatClient,
         string spaceId, string eventFunction, GenericServiceType serviceObj) returns error? = @java:Method {
     name: "invokeRemoteFunction",
-    'class: "io.ballerina.lib.googlechat.ChatEventDispatcher"
+    'class: "io.ballerina.lib.googleapis.chat.ChatEventDispatcher"
 } external;
 
 isolated function requiresCaller(GenericServiceType serviceObj, string eventFunction) returns boolean|error = @java:Method {
     name: "requiresCaller",
-    'class: "io.ballerina.lib.googlechat.ChatEventDispatcher"
+    'class: "io.ballerina.lib.googleapis.chat.ChatEventDispatcher"
 } external;

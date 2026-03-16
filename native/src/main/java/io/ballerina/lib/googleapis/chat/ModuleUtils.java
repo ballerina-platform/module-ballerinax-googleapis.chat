@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package io.ballerina.lib.googlechat;
+package io.ballerina.lib.googleapis.chat;
 
 import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.Module;
@@ -29,7 +29,7 @@ import io.ballerina.runtime.api.Module;
  */
 public final class ModuleUtils {
 
-    private static volatile Module googlechatModule = null;
+    private static volatile Module chatModule = null;
 
     private ModuleUtils() {
     }
@@ -40,7 +40,7 @@ public final class ModuleUtils {
      * @param env the Ballerina runtime environment
      */
     public static void setModule(Environment env) {
-        googlechatModule = env.getCurrentModule();
+        chatModule = env.getCurrentModule();
     }
 
     /**
@@ -49,6 +49,6 @@ public final class ModuleUtils {
      * @return the module reference
      */
     public static Module getModule() {
-        return googlechatModule;
+        return chatModule;
     }
 }

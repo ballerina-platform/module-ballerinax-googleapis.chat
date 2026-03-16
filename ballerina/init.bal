@@ -23,5 +23,5 @@ function init() {
 }
 
 isolated function setModule() = @java:Method {
-    'class: "io.ballerina.lib.googlechat.ModuleUtils"
+    'class: "io.ballerina.lib.googleapis.chat.ModuleUtils"
 } external;

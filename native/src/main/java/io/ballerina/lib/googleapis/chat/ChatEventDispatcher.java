@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package io.ballerina.lib.googlechat;
+package io.ballerina.lib.googleapis.chat;
 
 import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.Runtime;
@@ -57,7 +57,7 @@ public final class ChatEventDispatcher {
     private static final String CHAT_EVENT_RECORD = "ChatEvent";
     private static final String CALLER_OBJECT = "Caller";
     private static final String ORG_NAME = "ballerinax";
-    private static final String MODULE_NAME = "googleapis.googlechat";
+    private static final String MODULE_NAME = "googleapis.chat";
     private static final String FUNC_ON_MESSAGE = "onMessage";
     private static final String FUNC_ON_ADDED_TO_SPACE = "onAddedToSpace";
     private static final String FUNC_ON_REMOVED_FROM_SPACE = "onRemovedFromSpace";
@@ -88,7 +88,7 @@ public final class ChatEventDispatcher {
      *
      * @param env           the Ballerina runtime environment
      * @param chatEvent     the ChatEvent record (BMap)
-     * @param chatClient    the internal googlechat:Client BObject for API calls
+     * @param chatClient    the internal chat:Client BObject for API calls
      * @param spaceId       the space ID extracted from the event
      * @param eventFunction the name of the remote function to invoke
      * @param serviceObj    the user's ChatService object

@@ -242,7 +242,7 @@ public class Listener {
 
 isolated function validateService(GenericServiceType serviceObj) returns error? = @java:Method {
     name: "validateService",
-    'class: "io.ballerina.lib.googlechat.ChatEventDispatcher"
+    'class: "io.ballerina.lib.googleapis.chat.ChatEventDispatcher"
 } external;
 
 # Creates the Pub/Sub HTTP client from the listener configuration.

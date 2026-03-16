@@ -10,22 +10,22 @@ The Ballerina Google Chat connector offers APIs to connect and interact with the
 
 ## Quickstart
 
-To use the `googleapis.googlechat` connector in your Ballerina application, modify the `.bal` file as follows:
+To use the `googleapis.chat` connector in your Ballerina application, modify the `.bal` file as follows:
 
 ### Step 1: Import the module
 
-Import the `googleapis.googlechat` module.
+Import the `googleapis.chat` module.
 
 ```ballerina
-import ballerinax/googleapis.googlechat;
+import ballerinax/googleapis.chat;
 ```
 
 ### Step 2: Instantiate a new connector
 
-Create a `googlechat:ConnectionConfig` with the required credentials and initialize the connector with it.
+Create a `chat:ConnectionConfig` with the required credentials and initialize the connector with it.
 
 ```ballerina
-googlechat:Client googlechat = check new ({
+chat:Client chatClient = check new ({
     auth: {
         token: "<your-access-token>"
     }
@@ -44,6 +44,6 @@ bal run
 
 ## Examples
 
-The `googleapis.googlechat` connector provides practical examples illustrating usage in various scenarios.
+The `googleapis.chat` connector provides practical examples illustrating usage in various scenarios.
 
 <!-- Add examples here -->

@@ -1,22 +1,22 @@
 [package]
 distribution = "2201.13.0"
 org = "ballerinax"
-name= "googleapis.googlechat"
+name= "googleapis.chat"
 version = "@toml.version@"
 license = ["Apache-2.0"]
 authors = ["Ballerina"]
 keywords = ["Communication/Google Chat", "Cost/Freemium", "Vendor/Google"]
 icon = "icon.png"
-repository = "https://github.com/ballerina-platform/module-ballerinax-googleapis.googlechat"
+repository = "https://github.com/ballerina-platform/module-ballerinax-googleapis.chat"
 
 [platform.java21]
 graalvmCompatible = true
 
 [[platform.java21.dependency]]
 groupId = "io.ballerina.lib"
-artifactId = "googlechat-native"
+artifactId = "googleapis.chat-native"
 version = "@project.version@"
-path = "../native/build/libs/googlechat-native-@project.version@.jar"
+path = "../native/build/libs/googleapis.chat-native-@project.version@.jar"
 
 [build-options]
 observabilityIncluded = true

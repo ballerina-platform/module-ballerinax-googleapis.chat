@@ -16,8 +16,8 @@
  * under the License.
  */
 
-module io.ballerina.lib.googlechat {
+module io.ballerina.lib.googleapis.chat {
     requires io.ballerina.runtime;
     requires io.ballerina.lang.value;
-    exports io.ballerina.lib.googlechat;
+    exports io.ballerina.lib.googleapis.chat;
 }
