@@ -67,6 +67,13 @@ public enum MembershipRole {
     ROLE_ASSISTANT_MANAGER
 }
 
+# Source of an attachment in a message.
+public enum AttachmentSource {
+    SOURCE_UNSPECIFIED,
+    DRIVE_FILE,
+    UPLOADED_CONTENT
+}
+
 # Type of an annotation in a message.
 public enum AnnotationType {
     ANNOTATION_TYPE_UNSPECIFIED,
@@ -461,7 +468,7 @@ public type EmojiReactionSummary record {
 # + downloadUri - A download URL for the attachment
 # + attachmentDataRef - Reference to attachment data uploaded via the Chat API
 # + driveDataRef - Reference to a Google Drive file
-# + source - The source of the attachment
+# + source - The source of the attachment (`DRIVE_FILE` or `UPLOADED_CONTENT`)
 public type Attachment record {
     string name?;
     string contentName?;
@@ -470,12 +477,14 @@ public type Attachment record {
     string downloadUri?;
     AttachmentDataRef attachmentDataRef?;
     DriveDataRef driveDataRef?;
-    string 'source?;
+    AttachmentSource 'source?;
 };
 
 # Reference to the data of a Chat attachment.
 #
-# + resourceName - The resource name of the attachment data
+# + resourceName - Opaque media resource name used with `Client.downloadMedia()` to
+#                  download the attachment bytes. Pass this value exactly as returned
+#                  by Google Chat without parsing or reconstructing it
 # + attachmentUploadToken - Opaque token containing a reference to an uploaded attachment
 public type AttachmentDataRef record {
     string resourceName?;

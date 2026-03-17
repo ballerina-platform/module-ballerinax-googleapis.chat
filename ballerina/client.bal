@@ -473,15 +473,15 @@ public isolated client class Client {
         return self.httpClient->get(path, targetType = Attachment);
     }
 
-    # Downloads the binary content of a media resource.
+    # Downloads attachment bytes using the media API.
     #
-    # Pass the `attachmentDataRef.resourceName` as path segments, for example
-    # `client->/media/spaces/AAA/messages/BBB/attachments/CCC`.
+    # Pass the exact `attachmentDataRef.resourceName` value returned by Google Chat.
+    # Treat this value as opaque and do not parse or reconstruct it.
     #
-    # + resourceName - The slash-separated media resource name
+    # + resourceName - The opaque media resource name from `Attachment.attachmentDataRef.resourceName`
     # + return - The downloaded media bytes or an error
-    resource isolated function get media/[string... resourceName]() returns byte[]|error {
-        string path = "/media/" + string:'join("/", ...resourceName) + "?alt=media";
+    remote isolated function downloadMedia(string resourceName) returns byte[]|error {
+        string path = "/media/" + resourceName + "?alt=media";
         http:Response response = check self.httpClient->get(path);
         return response.getBinaryPayload();
     }
