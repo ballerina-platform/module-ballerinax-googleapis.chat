@@ -77,7 +77,7 @@ public isolated client class Client {
             // Service account auth — use JWT Bearer Grant (RFC 7523) to exchange
             // a signed JWT assertion for an OAuth2 access token. Google Chat API
             // requires a proper OAuth2 Bearer token, not a raw self-signed JWT.
-            NormalizedServiceAccount saConfig = check normalizeServiceAccountAuth(<ServiceAccountAuthConfig>config.auth);
+            ServiceAccountConfig saConfig = check normalizeServiceAccountAuth(<ServiceAccountAuthConfig>config.auth);
             jwt:IssuerConfig assertionConfig = {
                 issuer: saConfig.issuer,
                 username: saConfig.issuer,

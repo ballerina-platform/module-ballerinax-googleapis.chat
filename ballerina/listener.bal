@@ -282,7 +282,7 @@ function createPubSubClient(ListenerConfig listenerConfig) returns http:Client|e
 
     // Service account auth — use JWT Bearer Grant (RFC 7523) to exchange
     // a signed JWT assertion for an OAuth2 access token.
-    NormalizedServiceAccount saConfig = check normalizeServiceAccountAuth(
+    ServiceAccountConfig saConfig = check normalizeServiceAccountAuth(
             <ServiceAccountAuthConfig>listenerConfig.auth);
 
     jwt:IssuerConfig assertionConfig = {

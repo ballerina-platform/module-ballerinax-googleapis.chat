@@ -17,7 +17,6 @@
 import ballerina/crypto;
 import ballerina/http;
 import ballerina/io;
-import ballerina/jwt;
 import ballerina/log;
 import ballerina/uuid;
 
@@ -29,7 +28,7 @@ import ballerina/uuid;
 #
 # + pubSubClient - Authenticated HTTP client for the Pub/Sub API
 # + topicResource - Fully qualified topic resource name
-#                   (e.g. `projects/my-project/topics/my-topic`)
+# (e.g. `projects/my-project/topics/my-topic`)
 # + callbackURL - Public URL where Pub/Sub will push events
 # + return - Subscription resource name, or an error
 isolated function createPushSubscription(http:Client pubSubClient, string topicResource,
@@ -45,7 +44,7 @@ isolated function createPushSubscription(http:Client pubSubClient, string topicR
     string subscriptionResource = PROJECTS + project + SUBSCRIPTIONS + subscriptionName;
 
     Subscription subscription = check createSubscription(pubSubClient, subscriptionResource,
-        topicResource, callbackURL);
+            topicResource, callbackURL);
     log:printInfo(LOG_PUBSUB_SUB_CREATED + subscription.name);
 
     return {subscriptionResource: subscriptionResource};
@@ -72,7 +71,7 @@ isolated function createSubscription(http:Client pubSubClient, string subscripti
         targetType = Subscription);
     if response is error {
         log:printError(ERR_SUBSCRIPTION_CREATION, response,
-            subscriptionResource = subscriptionResource, topicResource = topicResource);
+                subscriptionResource = subscriptionResource, topicResource = topicResource);
         return error PubSubError(ERR_SUBSCRIPTION_CREATION, response);
     }
     return response;
@@ -88,11 +87,6 @@ isolated function deleteSubscription(http:Client pubSubClient, string subscripti
     http:Response _ = check pubSubClient->delete(subscriptionResource);
 }
 
-type NormalizedServiceAccount record {|
-    string issuer;
-    jwt:IssuerSignatureConfig signatureConfig;
-|};
-
 type GoogleServiceAccountFile record {|
     string 'type;
     string client_email;
@@ -107,12 +101,9 @@ type GoogleServiceAccountFile record {|
     string universe_domain?;
 |};
 
-isolated function normalizeServiceAccountAuth(ServiceAccountAuthConfig config) returns NormalizedServiceAccount|error {
+isolated function normalizeServiceAccountAuth(ServiceAccountAuthConfig config) returns ServiceAccountConfig|error {
     if config is ServiceAccountConfig {
-        return {
-            issuer: config.issuer,
-            signatureConfig: config.signatureConfig
-        };
+        return config;
     }
 
     ServiceAccountCredentials credentials = config is ServiceAccountCredentials
@@ -137,7 +128,7 @@ isolated function loadServiceAccountCredentials(string path) returns ServiceAcco
     return check credentialsJson.cloneWithType(ServiceAccountCredentials);
 }
 
-isolated function normalizeServiceAccountCredentials(ServiceAccountCredentials credentials) returns NormalizedServiceAccount|error {
+isolated function normalizeServiceAccountCredentials(ServiceAccountCredentials credentials) returns ServiceAccountConfig|error {
     if credentials.'type != "service_account" {
         return error ServiceAccountError("Invalid service account credentials type: expected 'service_account'");
     }
