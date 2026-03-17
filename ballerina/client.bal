@@ -177,6 +177,55 @@ public isolated client class Client {
         return self.httpClient->get(path, targetType = Space);
     }
 
+    # Searches for spaces in a Google Workspace organization (requires admin access).
+    #
+    # Returns a paginated list of spaces matching the given query. The caller must
+    # be a Google Workspace administrator with the manage chat and spaces conversations
+    # privilege. Set `useAdminAccess` to `true` in the query parameters.
+    #
+    # Requires the `chat.admin.spaces` or `chat.admin.spaces.readonly` OAuth scope.
+    #
+    # + queries - Query parameters including the required `query` field and optional
+    #             `useAdminAccess`, `pageSize`, `pageToken`, and `orderBy`
+    # + return - A paginated list of matching spaces or an error
+    resource isolated function get spaces/search(
+            *SearchSpacesQueries queries) returns SearchSpacesResponse|error {
+        string path = "/spaces:search";
+        string[] queryParts = [];
+        queryParts.push("query=" + queries.query);
+        if queries.useAdminAccess is boolean {
+            queryParts.push("useAdminAccess=" + (<boolean>queries.useAdminAccess).toString());
+        }
+        if queries.pageSize is int {
+            queryParts.push("pageSize=" + (<int>queries.pageSize).toString());
+        }
+        if queries.pageToken is string {
+            queryParts.push("pageToken=" + <string>queries.pageToken);
+        }
+        if queries.orderBy is string {
+            queryParts.push("orderBy=" + <string>queries.orderBy);
+        }
+        path = path + "?" + string:'join("&", ...queryParts);
+        return self.httpClient->get(path, targetType = SearchSpacesResponse);
+    }
+
+    # Creates a space and adds specified users or Google Groups to it.
+    #
+    # The calling user is automatically added to the space and should not be
+    # specified in the memberships list. Supports creating named spaces,
+    # group chats, and direct messages (including DMs with the calling app).
+    #
+    # Requires user authentication with the `chat.spaces` or
+    # `chat.spaces.create` OAuth scope.
+    #
+    # + payload - The setup request containing the space definition and optional
+    #             initial memberships and idempotency request ID
+    # + return - The created (or existing, for DMs) space or an error
+    resource isolated function post spaces/setup(
+            SetUpSpaceRequest payload) returns Space|error {
+        return self.httpClient->post("/spaces:setup", payload, targetType = Space);
+    }
+
     // ═════════════════════════════════════════════════════════════════════════
     // Messages
     // ═════════════════════════════════════════════════════════════════════════

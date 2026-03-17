@@ -1564,6 +1564,18 @@ public type ListSpacesResponse record {
     Space[] spaces?;
 };
 
+# Response from searching spaces (admin access).
+#
+# + spaces - Page of spaces matching the search query
+# + nextPageToken - Token to retrieve the next page. Empty if no more pages
+# + totalSize - Total number of spaces matching the query across all pages.
+#               An estimate if the total exceeds 10,000
+public type SearchSpacesResponse record {
+    Space[] spaces?;
+    string nextPageToken?;
+    int totalSize?;
+};
+
 # Response from listing messages in a space.
 #
 # + nextPageToken - Token for the next page of results

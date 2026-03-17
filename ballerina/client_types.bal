@@ -303,3 +303,47 @@ public type ListSpaceEventsQueries record {
     string pageToken?;
     string filter;
 };
+
+# Query parameters for searching spaces (admin access required).
+#
+# Requires user authentication with administrator privileges and the
+# `chat.admin.spaces` or `chat.admin.spaces.readonly` OAuth scope.
+#
+# + query - Required. A search query supporting fields such as `createTime`, `customer`,
+#           `displayName`, `externalUserAllowed`, `lastActiveTime`, `spaceHistoryState`,
+#           and `spaceType`. `customer` and `spaceType` are required fields in the query.
+#           Example: `customer = "customers/my_customer" AND spaceType = "SPACE"`
+# + useAdminAccess - Must be `true`. Runs the method using the user's Google Workspace
+#                    administrator privileges
+# + pageSize - Maximum number of spaces to return (default 100, max 1000)
+# + pageToken - Page token from a previous search request for pagination
+# + orderBy - How to order the results. Supported values: `membershipCount.joined_direct_human_user_count`,
+#             `lastActiveTime`, `createTime`. Append `ASC` or `DESC` (e.g., `lastActiveTime DESC`)
+public type SearchSpacesQueries record {
+    string query;
+    boolean useAdminAccess?;
+    int pageSize?;
+    string pageToken?;
+    string orderBy?;
+};
+
+# Request body for setting up a space with initial members.
+#
+# Creates a space and adds specified users or Google Groups to it. The calling
+# user is automatically added and should not be specified in `memberships`.
+#
+# Requires user authentication with the `chat.spaces` or `chat.spaces.create`
+# OAuth scope.
+#
+# + space - Required. The space to create. `Space.spaceType` is required.
+#           Set `spaceType` to `SPACE` for a named space, `GROUP_CHAT` for a group
+#           chat, or `DIRECT_MESSAGE` for a 1:1 DM
+# + requestId - Optional unique identifier for idempotency. A random UUID is recommended.
+#               Re-using an existing ID returns the previously created space
+# + memberships - Optional list of human users or Google Groups to invite. The calling
+#                 user is added automatically. Maximum 49 memberships
+public type SetUpSpaceRequest record {
+    Space space;
+    string requestId?;
+    Membership[] memberships?;
+};
