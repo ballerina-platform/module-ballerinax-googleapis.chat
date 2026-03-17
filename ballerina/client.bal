@@ -16,6 +16,7 @@
 
 import ballerina/http;
 import ballerina/jwt;
+import ballerina/mime;
 
 # Google Chat API client. Provides resource-based access to the Google Chat
 # REST API v1 for managing spaces, messages, memberships, reactions, and
@@ -30,6 +31,7 @@ import ballerina/jwt;
 @display {label: "Google Chat", iconPath: "docs/icon.png"}
 public isolated client class Client {
     final http:Client httpClient;
+    final http:Client uploadHttpClient;
 
     # Initializes the Google Chat API client.
     #
@@ -92,6 +94,7 @@ public isolated client class Client {
         }
 
         self.httpClient = check new (serviceUrl, httpClientConfig);
+        self.uploadHttpClient = check new (resolveUploadServiceUrl(serviceUrl), httpClientConfig);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -356,6 +359,35 @@ public isolated client class Client {
     // Attachments
     // ═════════════════════════════════════════════════════════════════════════
 
+    # Uploads an attachment to a Google Chat space.
+    #
+    # + spaceId - The ID of the space that will own the uploaded attachment
+    # + payload - The attachment metadata and file bytes to upload
+    # + return - The uploaded attachment reference or an error
+    resource isolated function post spaces/[string spaceId]/attachments/upload(
+            UploadAttachmentRequest payload) returns UploadAttachmentResponse|error {
+        string path = "/spaces/" + spaceId + "/attachments:upload";
+
+        mime:Entity metadataPart = new;
+        metadataPart.setJson({filename: payload.filename});
+        mime:ContentDisposition metadataContentDisposition = new;
+        metadataContentDisposition.disposition = "form-data";
+        metadataContentDisposition.name = "metadata";
+        metadataPart.setContentDisposition(metadataContentDisposition);
+
+        mime:Entity mediaPart = new;
+        mediaPart.setByteArray(payload.mediaBytes);
+        mime:ContentDisposition mediaContentDisposition = new;
+        mediaContentDisposition.disposition = "form-data";
+        mediaContentDisposition.name = "file";
+        mediaContentDisposition.fileName = payload.filename;
+        mediaPart.setContentDisposition(mediaContentDisposition);
+
+        http:Request request = new;
+        request.setBodyParts([metadataPart, mediaPart], mime:MULTIPART_RELATED);
+        return self.uploadHttpClient->post(path, request, targetType = UploadAttachmentResponse);
+    }
+
     # Gets the metadata of a message attachment.
     #
     # + spaceId - The ID of the space
@@ -366,6 +398,19 @@ public isolated client class Client {
             returns Attachment|error {
         string path = "/spaces/" + spaceId + "/messages/" + messageId + "/attachments/" + attachmentId;
         return self.httpClient->get(path, targetType = Attachment);
+    }
+
+    # Downloads the binary content of a media resource.
+    #
+    # Pass the `attachmentDataRef.resourceName` as path segments, for example
+    # `client->/media/spaces/AAA/messages/BBB/attachments/CCC`.
+    #
+    # + resourceName - The slash-separated media resource name
+    # + return - The downloaded media bytes or an error
+    resource isolated function get media/[string... resourceName]() returns byte[]|error {
+        string path = "/media/" + string:'join("/", ...resourceName) + "?alt=media";
+        http:Response response = check self.httpClient->get(path);
+        return response.getBinaryPayload();
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -402,4 +447,11 @@ public isolated client class Client {
         path = path + "?" + string:'join("&", ...queryParts);
         return self.httpClient->get(path, targetType = ListSpaceEventsResponse);
     }
+}
+
+isolated function resolveUploadServiceUrl(string serviceUrl) returns string {
+    if serviceUrl.endsWith("/v1") {
+        return serviceUrl.substring(0, serviceUrl.length() - 3) + "/upload/v1";
+    }
+    return CHAT_UPLOAD_API_BASE_URL;
 }

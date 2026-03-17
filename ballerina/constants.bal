@@ -19,6 +19,9 @@
 # Base URL for the Google Chat REST API v1.
 const string CHAT_API_BASE_URL = "https://chat.googleapis.com/v1";
 
+# Base URL for Google Chat media upload requests.
+const string CHAT_UPLOAD_API_BASE_URL = "https://chat.googleapis.com/upload/v1";
+
 # Base URL for the Google Cloud Pub/Sub API v1.
 const string PUBSUB_BASE_URL = "https://pubsub.googleapis.com/v1/";
 

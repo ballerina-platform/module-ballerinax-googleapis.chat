@@ -214,10 +214,20 @@ function testCreateMessageRequest() {
         text: "Hello from bot!",
         thread: {
             threadKey: "my-thread"
+        },
+        attachment: [{
+            attachmentDataRef: {
+                attachmentUploadToken: "upload-token-123"
+            }
+        }],
+        quotedMessageMetadata: {
+            name: "spaces/AAAAAA/messages/BBBBBB"
         }
     };
     test:assertEquals(request.text, "Hello from bot!");
     test:assertEquals((<ChatThread>request.thread).threadKey, "my-thread");
+    test:assertEquals((<Attachment[]>request.attachment)[0].attachmentDataRef?.attachmentUploadToken, "upload-token-123");
+    test:assertEquals((<QuotedMessageMetadata>request.quotedMessageMetadata).name, "spaces/AAAAAA/messages/BBBBBB");
 }
 
 @test:Config {}
@@ -290,6 +300,31 @@ function testAttachmentRecordCreation() {
     test:assertEquals(attachment.name, "spaces/AAAAAA/messages/BBBBBB/attachments/CCCCCC");
     test:assertEquals(attachment.contentName, "document.pdf");
     test:assertEquals(attachment.contentType, "application/pdf");
+}
+
+@test:Config {}
+function testUploadAttachmentRequestRecordCreation() {
+    UploadAttachmentRequest request = {
+        filename: "image.png",
+        mediaBytes: [137, 80, 78, 71]
+    };
+
+    test:assertEquals(request.filename, "image.png");
+    test:assertEquals(request.mediaBytes.length(), 4);
+}
+
+@test:Config {}
+function testUploadAttachmentResponseRecordCreation() {
+    UploadAttachmentResponse response = {
+        attachmentDataRef: {
+            resourceName: "spaces/AAAAAA/messages/BBBBBB/attachments/CCCCCC",
+            attachmentUploadToken: "upload-token-123"
+        }
+    };
+
+    test:assertEquals((<AttachmentDataRef>response.attachmentDataRef).resourceName,
+        "spaces/AAAAAA/messages/BBBBBB/attachments/CCCCCC");
+    test:assertEquals((<AttachmentDataRef>response.attachmentDataRef).attachmentUploadToken, "upload-token-123");
 }
 
 @test:Config {}

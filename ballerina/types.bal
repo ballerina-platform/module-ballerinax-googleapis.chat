@@ -350,6 +350,8 @@ public type Message record {
 # + thread - Thread to post the message in (for threaded replies)
 # + fallbackText - Plain-text description of message cards
 # + actionResponse - Parameters for configuring how the response is posted
+# + attachment - User-uploaded attachments to include in the message
+# + quotedMessageMetadata - Information about the quoted message
 # + accessoryWidgets - Interactive widgets at the bottom of the message
 public type CreateMessageRequest record {|
     string text?;
@@ -357,6 +359,8 @@ public type CreateMessageRequest record {|
     ChatThread thread?;
     string fallbackText?;
     ActionResponse actionResponse?;
+    Attachment[] attachment?;
+    QuotedMessageMetadata quotedMessageMetadata?;
     AccessoryWidget[] accessoryWidgets?;
 |};
 
@@ -486,6 +490,13 @@ public type DriveDataRef record {
 public type UploadAttachmentRequest record {|
     string filename;
     byte[] mediaBytes;
+|};
+
+# Response returned after uploading an attachment.
+#
+# + attachmentDataRef - Reference to the uploaded attachment
+public type UploadAttachmentResponse record {|
+    AttachmentDataRef attachmentDataRef?;
 |};
 
 // ── Annotation ──────────────────────────────────────────────────────────────────
