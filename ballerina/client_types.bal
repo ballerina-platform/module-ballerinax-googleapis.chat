@@ -223,7 +223,7 @@ public type ListSpacesQueries record {
 public type CreateMessageQueries record {
     string threadKey?;
     string requestId?;
-    string messageReplyOption?;
+    MessageReplyOption messageReplyOption?;
     string messageId?;
 };
 
@@ -251,6 +251,17 @@ public type UpdateMessageQueries record {
     boolean allowMissing?;
 };
 
+# Query parameters for getting a membership.
+#
+# + useAdminAccess - When `true`, the method runs using the user's Google Workspace
+#                    administrator privileges. The calling user must be a Workspace admin
+#                    with the manage chat and spaces conversations privilege. Requires the
+#                    `chat.admin.memberships` or `chat.admin.memberships.readonly` OAuth scope.
+#                    Getting app memberships in a space is not supported when using admin access
+public type GetMembershipQueries record {
+    boolean useAdminAccess?;
+};
+
 # Query parameters for listing memberships.
 #
 # + pageSize - Maximum number of memberships to return (max 1000)
@@ -265,6 +276,19 @@ public type ListMembershipsQueries record {
     string filter?;
     boolean showGroups?;
     boolean showInvited?;
+    boolean useAdminAccess?;
+};
+
+# Query parameters for updating a membership.
+#
+# + updateMask - Required. The field paths to update, separated by commas or use `*` to
+#                update all field paths. Currently supported field paths: `role`
+# + useAdminAccess - When `true`, the method runs using the user's Google Workspace
+#                    administrator privileges. The calling user must be a Workspace admin
+#                    with the manage chat and spaces conversations privilege. Requires the
+#                    `chat.admin.memberships` OAuth scope
+public type UpdateMembershipQueries record {
+    string updateMask;
     boolean useAdminAccess?;
 };
 

@@ -143,6 +143,12 @@ public enum AppCommandType {
     QUICK_COMMAND
 }
 
+public enum MessageReplyOption {
+    MESSAGE_REPLY_OPTION_UNSPECIFIED,
+    REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD,
+    REPLY_MESSAGE_OR_FAIL
+}
+
 // ── Space ───────────────────────────────────────────────────────────────────────
 
 # Predefined permission settings for a space (input only when creating a named space).

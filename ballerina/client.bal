@@ -186,7 +186,7 @@ public isolated client class Client {
     # Requires the `chat.admin.spaces` or `chat.admin.spaces.readonly` OAuth scope.
     #
     # + queries - Query parameters including the required `query` field and optional
-    #             `useAdminAccess`, `pageSize`, `pageToken`, and `orderBy`
+    # `useAdminAccess`, `pageSize`, `pageToken`, and `orderBy`
     # + return - A paginated list of matching spaces or an error
     resource isolated function get spaces/search(
             *SearchSpacesQueries queries) returns SearchSpacesResponse|error {
@@ -219,7 +219,7 @@ public isolated client class Client {
     # `chat.spaces.create` OAuth scope.
     #
     # + payload - The setup request containing the space definition and optional
-    #             initial memberships and idempotency request ID
+    # initial memberships and idempotency request ID
     # + return - The created (or existing, for DMs) space or an error
     resource isolated function post spaces/setup(
             SetUpSpaceRequest payload) returns Space|error {
@@ -247,8 +247,8 @@ public isolated client class Client {
         if queries.requestId is string {
             queryParts.push("requestId=" + <string>queries.requestId);
         }
-        if queries.messageReplyOption is string {
-            queryParts.push("messageReplyOption=" + <string>queries.messageReplyOption);
+        if queries.messageReplyOption is MessageReplyOption {
+            queryParts.push("messageReplyOption=" + queries.messageReplyOption.toString());
         }
         if queries.messageId is string {
             queryParts.push("messageId=" + <string>queries.messageId);
@@ -346,11 +346,35 @@ public isolated client class Client {
     #
     # + spaceId - The ID of the space
     # + memberId - The ID of the member
+    # + queries - Query parameters (optional `useAdminAccess` for admin privileges)
     # + return - The membership or an error
-    resource isolated function get spaces/[string spaceId]/members/[string memberId]()
-            returns Membership|error {
+    resource isolated function get spaces/[string spaceId]/members/[string memberId](
+            *GetMembershipQueries queries) returns Membership|error {
         string path = "/spaces/" + spaceId + "/members/" + memberId;
+        if queries.useAdminAccess is boolean {
+            path = path + "?useAdminAccess=" + (<boolean>queries.useAdminAccess).toString();
+        }
         return self.httpClient->get(path, targetType = Membership);
+    }
+
+    # Updates a membership (e.g., changes a member's role in a space).
+    #
+    # + spaceId - The ID of the space
+    # + memberId - The ID of the member to update
+    # + payload - The membership with updated fields
+    # + queries - Query parameters (`updateMask` is required; optionally `useAdminAccess`)
+    # + return - The updated membership or an error
+    resource isolated function patch spaces/[string spaceId]/members/[string memberId](
+            Membership payload,
+            *UpdateMembershipQueries queries) returns Membership|error {
+        string path = "/spaces/" + spaceId + "/members/" + memberId;
+        string[] queryParts = [];
+        queryParts.push("updateMask=" + queries.updateMask);
+        if queries.useAdminAccess is boolean {
+            queryParts.push("useAdminAccess=" + (<boolean>queries.useAdminAccess).toString());
+        }
+        path = path + "?" + string:'join("&", ...queryParts);
+        return self.httpClient->patch(path, payload, targetType = Membership);
     }
 
     # Deletes a membership (removes a user or Chat app from a space).
