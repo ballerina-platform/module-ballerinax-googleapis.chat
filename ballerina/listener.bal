@@ -16,48 +16,16 @@
 
 import ballerina/http;
 import ballerina/jballerina.java;
-import ballerina/jwt;
 import ballerina/log;
 
 # Google Chat trigger listener. Receives Google Chat interaction events via
-# either Google Cloud Pub/Sub push subscriptions or direct HTTP delivery.
+# direct HTTP delivery from Google Chat.
 #
-# ## Delivery modes
+# Google Chat sends interaction events directly to the listener's root path
+# (`/`). Each request carries a bearer token in the `Authorization` header
+# that is verified before processing.
 #
-# The mode is determined by the `@ServiceConfig` annotation on the attached
-# `ChatService`:
-#
-# - **Pub/Sub mode** (`PubSubConfig`): The listener auto-creates a push
-# subscription on the configured topic. Pub/Sub pushes events as HTTP POST
-# requests to the `callbackURL` path `/webhook`. On shutdown, the
-# subscription is deleted automatically.
-#
-# - **HTTP mode** (`HttpConfig`): Google Chat sends interaction events directly
-# to the listener's root path (`/`). Each request carries a bearer token in
-# the `Authorization` header that is verified before processing. No external
-# resources are created or cleaned up.
-#
-# ## Usage — Pub/Sub mode
-#
-# ```ballerina
-# listener chat:Listener chatListener = new (8000, {
-#     auth: {
-#         path: "/path/to/service-account.json"
-#     }
-# });
-#
-# @chat:ServiceConfig {
-#     topicName: "projects/my-gcp-project/topics/my-chat-topic",
-#     callbackURL: "https://my-app.example.com/webhook"
-# }
-# service chat:ChatService on chatListener {
-#     remote function onMessage(chat:ChatEvent event) returns error? {
-#         // Handle incoming message
-#     }
-# }
-# ```
-#
-# ## Usage — HTTP mode
+# ## Usage
 #
 # ```ballerina
 # listener chat:Listener chatListener = new (8090, {
@@ -70,8 +38,8 @@ import ballerina/log;
 #     endpointUrl: "https://my-app.example.com"
 # }
 # service chat:ChatService on chatListener {
-#     remote function onMessage(chat:ChatEvent event, chat:Caller caller) returns error? {
-#         _ = check caller->reply("Hello!");
+#     remote function onMessage(chat:MessageEvent event, chat:MessageCaller caller) returns error? {
+#         check caller->respond({ text: "Hello!" });
 #     }
 # }
 # ```
@@ -81,21 +49,7 @@ public class Listener {
     private DispatcherService dispatcherService;
     private final Client chatClient;
 
-    # Pub/Sub HTTP client, used for subscription management in Pub/Sub mode.
-    # Declared `final` because it is assigned once in `init` and never changed,
-    # allowing isolated methods to read it without a lock. Created for all modes
-    # so the field always has a value; in HTTP mode it is present but unused.
-    private final http:Client pubSubClient;
-
-    # Set during attach once the Pub/Sub subscription is created.
-    # Guarded by a lock in isolated methods because it is mutated after init.
-    private string subscriptionResource = "";
-
     # Initializes the Google Chat trigger listener.
-    #
-    # Sets up the HTTP listener and (if needed) the Pub/Sub client. The
-    # delivery mode is determined later in `attach()` from the `@ServiceConfig`
-    # annotation on the service. No external resources are created here.
     #
     # + listenOn - The port or HTTP listener to listen on. Defaults to port 8000.
     # + config - Configuration including auth credentials
@@ -107,56 +61,31 @@ public class Listener {
             self.httpListener = check new (listenOn, config.httpListenerConfig);
         }
 
-        // Create the Chat API client — used by the Caller in both modes.
+        // Create the Chat API client — used by the Callers for async operations.
         self.chatClient = check new ({auth: config.auth});
 
-        // Build the Pub/Sub HTTP client. Assigned final here; it is always
-        // created regardless of mode so the field has a stable value from init.
-        // In HTTP mode it is present but never used for subscription management.
-        // normalizeServiceAccountAuth() does file I/O so it must run here in
-        // the non-isolated init(), not in the isolated stop methods.
-        self.pubSubClient = check createPubSubClient(config);
-
-        self.dispatcherService = new DispatcherService("", self.chatClient);
+        self.dispatcherService = new DispatcherService(self.chatClient);
     }
 
     # Attaches a `ChatService` implementation to this listener.
     #
-    # Reads the `@ServiceConfig` annotation on the service to determine the
-    # delivery mode:
-    #
-    # - **`PubSubConfig`**: Creates a Pub/Sub push subscription on the
-    # pre-existing topic and stores the subscription resource name for
-    # cleanup on shutdown.
-    # - **`HttpConfig`**: Configures the dispatcher with token verification
-    # settings. No external resources are created.
+    # Reads the `@ServiceConfig` annotation on the service to configure bearer
+    # token verification settings.
     #
     # + serviceRef - The service to attach (must have a `@ServiceConfig` annotation)
     # + attachPoint - The attach point (unused, kept for API compatibility)
-    # + return - An error if the annotation is missing or subscription creation fails
+    # + return - An error if the annotation is missing
     public function attach(GenericServiceType serviceRef, () attachPoint) returns @tainted error? {
         typedesc<any> serviceTypedesc = typeof serviceRef;
         ServiceConfiguration? svcConfig = serviceTypedesc.@ServiceConfig;
         if svcConfig is () {
             return error ListenerError("@chat:ServiceConfig annotation is required on the service. " +
-                "Provide a PubSubConfig (topicName + callbackURL) for Pub/Sub mode, " +
-                "an HttpEndpointUrlConfig (endpointUrl) or ProjectNumberConfig (projectNumber) for HTTP mode.");
+                "Provide an HttpEndpointUrlConfig (endpointUrl) or ProjectNumberConfig (projectNumber).");
         }
         check validateService(serviceRef);
 
-        if svcConfig is PubSubConfig {
-            // ── Pub/Sub mode ─────────────────────────────────────────────────
-            SubscriptionDetail detail = check createPushSubscription(
-                    self.pubSubClient, svcConfig.topicName, svcConfig.callbackURL
-            );
-            self.subscriptionResource = detail.subscriptionResource;
-            self.dispatcherService.setSubscriptionResource(self.subscriptionResource);
-            log:printInfo("Google Chat listener started in Pub/Sub mode");
-        } else {
-            // ── HTTP mode ─────────────────────────────────────────────────────
-            self.dispatcherService.setHttpConfig(<HttpConfig>svcConfig);
-            log:printInfo("Google Chat listener started in HTTP mode");
-        }
+        self.dispatcherService.setHttpConfig(svcConfig);
+        log:printInfo("Google Chat listener started in HTTP mode");
 
         string serviceTypeStr = self.getServiceTypeStr(serviceRef);
         check self.dispatcherService.addServiceRef(serviceTypeStr, serviceRef);
@@ -184,41 +113,15 @@ public class Listener {
 
     # Gracefully stops the listener.
     #
-    # In Pub/Sub mode, deletes the push subscription before shutting down.
-    # In HTTP mode, simply stops the HTTP listener.
-    #
-    # + return - An error if cleanup or shutdown fails
+    # + return - An error if shutdown fails
     public isolated function gracefulStop() returns @tainted error? {
-        string subResource;
-        lock {
-            subResource = self.subscriptionResource;
-        }
-        if subResource != "" {
-            error? subDeleteResult = deleteSubscription(self.pubSubClient, subResource);
-            if subDeleteResult is error {
-                log:printWarn("Failed to delete Pub/Sub subscription: " + subDeleteResult.message());
-            }
-        }
         return self.httpListener.gracefulStop();
     }
 
     # Immediately stops the listener.
     #
-    # In Pub/Sub mode, attempts to delete the push subscription before stopping.
-    # In HTTP mode, simply stops the HTTP listener.
-    #
-    # + return - An error if cleanup or shutdown fails
+    # + return - An error if shutdown fails
     public isolated function immediateStop() returns error? {
-        string subResource;
-        lock {
-            subResource = self.subscriptionResource;
-        }
-        if subResource != "" {
-            error? subDeleteResult = deleteSubscription(self.pubSubClient, subResource);
-            if subDeleteResult is error {
-                log:printWarn("Failed to delete Pub/Sub subscription: " + subDeleteResult.message());
-            }
-        }
         return self.httpListener.immediateStop();
     }
 
@@ -235,59 +138,3 @@ isolated function validateService(GenericServiceType serviceObj) returns error? 
     name: "validateService",
     'class: "io.ballerina.lib.googleapis.chat.ChatEventDispatcher"
 } external;
-
-# Creates the Pub/Sub HTTP client from the listener configuration.
-#
-# Extracted from `Listener.init()` so that `pubSubClient` can be assigned
-# in a single expression, allowing it to be declared `final`.
-#
-# The client is created for all modes (both Pub/Sub and HTTP) so the field
-# always has a stable value. In HTTP mode the client is present but unused.
-#
-# + config - The listener configuration with auth credentials
-# + return - A configured `http:Client` for the Pub/Sub API, or an error
-function createPubSubClient(ListenerConfig config) returns http:Client|error {
-    if config.auth is OAuth2Config {
-        OAuth2Config oauthConfig = <OAuth2Config>config.auth;
-        return new (PUBSUB_BASE_URL, {
-            auth: <http:OAuth2RefreshTokenGrantConfig>{
-                clientId: oauthConfig.clientId,
-                clientSecret: oauthConfig.clientSecret,
-                refreshUrl: oauthConfig.refreshUrl,
-                refreshToken: oauthConfig.refreshToken
-            }
-        });
-    }
-
-    if config.auth is http:BearerTokenConfig {
-        // Pre-obtained access token — passed straight through.
-        // Note: Google access tokens expire after ~1 hour. If the listener
-        // runs longer, the delete-subscription call on gracefulStop() may
-        // fail and the subscription will be orphaned.
-        return new (PUBSUB_BASE_URL, {
-            auth: <http:BearerTokenConfig>config.auth
-        });
-    }
-
-    // Service account auth — use JWT Bearer Grant (RFC 7523) to exchange
-    // a signed JWT assertion for an OAuth2 access token.
-    ServiceAccountConfig saConfig = check normalizeServiceAccountAuth(
-            <ServiceAccountAuthConfig>config.auth);
-
-    jwt:IssuerConfig assertionConfig = {
-        issuer: saConfig.issuer,
-        username: saConfig.issuer,
-        audience: GOOGLE_OAUTH2_TOKEN_URL,
-        expTime: 3600,
-        signatureConfig: saConfig.signatureConfig,
-        customClaims: {"scope": PUBSUB_SCOPE}
-    };
-    string assertion = check jwt:issue(assertionConfig);
-
-    return new (PUBSUB_BASE_URL, {
-        auth: <http:OAuth2JwtBearerGrantConfig>{
-            tokenUrl: GOOGLE_OAUTH2_TOKEN_URL,
-            assertion: assertion
-        }
-    });
-}

@@ -26,11 +26,11 @@ function createTestClient() returns Client|error {
     return new ({auth: <http:BearerTokenConfig>{token: "test-token"}});
 }
 
-// Test that DispatcherService correctly initializes with a subscription resource.
+// Test that DispatcherService correctly initializes.
 @test:Config {}
 function testDispatcherServiceInit() returns error? {
     Client testClient = check createTestClient();
-    DispatcherService _ = new ("projects/test-project/subscriptions/test-sub", testClient);
+    DispatcherService _ = new (testClient);
     // If init succeeds without error, the test passes.
     test:assertTrue(true);
 }
@@ -39,7 +39,7 @@ function testDispatcherServiceInit() returns error? {
 @test:Config {}
 function testDispatcherAddServiceRef() returns error? {
     Client testClient = check createTestClient();
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
+    DispatcherService dispatcher = new (testClient);
 
     MockChatService mockService = new ();
     check dispatcher.addServiceRef("ChatService", mockService);
@@ -51,7 +51,7 @@ function testDispatcherAddServiceRef() returns error? {
 @test:Config {}
 function testDispatcherAddDuplicateServiceRef() returns error? {
     Client testClient = check createTestClient();
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
+    DispatcherService dispatcher = new (testClient);
 
     MockChatService mockService = new ();
     check dispatcher.addServiceRef("ChatService", mockService);
@@ -68,7 +68,7 @@ function testDispatcherAddDuplicateServiceRef() returns error? {
 @test:Config {}
 function testDispatcherRemoveServiceRef() returns error? {
     Client testClient = check createTestClient();
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
+    DispatcherService dispatcher = new (testClient);
 
     MockChatService mockService = new ();
     check dispatcher.addServiceRef("ChatService", mockService);
@@ -81,7 +81,7 @@ function testDispatcherRemoveServiceRef() returns error? {
 @test:Config {}
 function testDispatcherRemoveNonExistentServiceRef() returns error? {
     Client testClient = check createTestClient();
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
+    DispatcherService dispatcher = new (testClient);
 
     error? result = dispatcher.removeServiceRef("ChatService");
     test:assertTrue(result is error);
@@ -94,7 +94,7 @@ function testDispatcherRemoveNonExistentServiceRef() returns error? {
 @test:Config {}
 function testDispatcherReAddServiceRef() returns error? {
     Client testClient = check createTestClient();
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
+    DispatcherService dispatcher = new (testClient);
 
     MockChatService mockService = new ();
     check dispatcher.addServiceRef("ChatService", mockService);
@@ -105,21 +105,8 @@ function testDispatcherReAddServiceRef() returns error? {
     test:assertTrue(true);
 }
 
-// Test dispatching with no service attached (should not error, silently returns).
-@test:Config {}
-function testDispatchWithNoServiceAttached() returns error? {
-    Client testClient = check createTestClient();
-    DispatcherService dispatcher = new ("projects/test-project/subscriptions/test-sub", testClient);
-
-    ChatEvent event = {
-        'type: MESSAGE,
-        message: {text: "Hello"}
-    };
-
-    // Should not error, just silently return since no service is registered.
-    check dispatcher.dispatch(event);
-    test:assertTrue(true);
-}
+// Note: Direct dispatch tests require an http:Caller which cannot be
+// constructed in unit tests. Dispatch behavior is covered by integration tests.
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HTTP Mode Dispatcher Tests
@@ -132,7 +119,7 @@ function testDispatcherServiceInitHttpMode() returns error? {
     HttpEndpointUrlConfig httpCfg = {
         endpointUrl: "https://my-app.example.com"
     };
-    DispatcherService _ = new ("", testClient, httpCfg);
+    DispatcherService _ = new (testClient, httpCfg);
     test:assertTrue(true);
 }
 
@@ -140,7 +127,7 @@ function testDispatcherServiceInitHttpMode() returns error? {
 @test:Config {}
 function testDispatcherSetHttpConfig() returns error? {
     Client testClient = check createTestClient();
-    DispatcherService dispatcher = new ("", testClient);
+    DispatcherService dispatcher = new (testClient);
 
     HttpEndpointUrlConfig httpCfg = {
         endpointUrl: "https://my-app.example.com"
@@ -154,7 +141,7 @@ function testDispatcherSetHttpConfig() returns error? {
 @test:Config {}
 function testDispatcherSetHttpConfigProjectNumber() returns error? {
     Client testClient = check createTestClient();
-    DispatcherService dispatcher = new ("", testClient);
+    DispatcherService dispatcher = new (testClient);
 
     ProjectNumberConfig httpCfg = {
         projectNumber: "1234567890"
@@ -163,23 +150,8 @@ function testDispatcherSetHttpConfigProjectNumber() returns error? {
     test:assertTrue(true);
 }
 
-// Test dispatching a MESSAGE event in HTTP mode (no service registered).
-@test:Config {}
-function testHttpModeDispatchWithNoServiceAttached() returns error? {
-    Client testClient = check createTestClient();
-    HttpEndpointUrlConfig httpCfg = {
-        endpointUrl: "https://my-app.example.com"
-    };
-    DispatcherService dispatcher = new ("", testClient, httpCfg);
-
-    ChatEvent event = {
-        'type: MESSAGE,
-        message: {text: "Hello from HTTP mode"}
-    };
-    // Should not error — silently returns when no service is registered.
-    check dispatcher.dispatch(event);
-    test:assertTrue(true);
-}
+// Note: HTTP mode dispatch tests require an http:Caller which cannot be
+// constructed in unit tests. Dispatch behavior is covered by integration tests.
 
 // Test that extractBearerToken correctly parses a well-formed Authorization header.
 @test:Config {}
@@ -218,16 +190,6 @@ function testExtractBearerTokenEmptyValue() {
     string|AuthenticationError result = extractBearerToken(req);
     test:assertTrue(result is AuthenticationError);
 }
-
-// Note: Full verifyChatBearerToken tests (ID Token and Project Number JWT)
-// require a real Google-signed token and cannot be run as offline unit tests.
-// ID token verification accepts both `accounts.google.com` and
-// `https://accounts.google.com` issuers. These are covered by integration tests.
-
-// Note: Dispatch tests that verify actual remote function invocation on the
-// MockChatService require the native Java dispatcher to be available at
-// runtime. Testing the full dispatch flow requires integration tests with
-// a running HTTP listener and Pub/Sub push simulation.
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Mock ChatService for Testing

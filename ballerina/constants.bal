@@ -22,37 +22,13 @@ const string CHAT_API_BASE_URL = "https://chat.googleapis.com/v1";
 # Base URL for Google Chat media upload requests.
 const string CHAT_UPLOAD_API_BASE_URL = "https://chat.googleapis.com/upload/v1";
 
-# Base URL for the Google Cloud Pub/Sub API v1.
-const string PUBSUB_BASE_URL = "https://pubsub.googleapis.com/v1/";
-
 # Google OAuth2 token endpoint.
 const string GOOGLE_TOKEN_URL = "https://accounts.google.com/o/oauth2/token";
 
 # Google OAuth2 token endpoint for JWT Bearer Grant (service account flow).
 const string GOOGLE_OAUTH2_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
-// ── Pub/Sub Resource Paths ──────────────────────────────────────────────────────
-
-# Resource path prefix for Google Cloud projects.
-const string PROJECTS = "projects/";
-
-# Resource path segment for Pub/Sub subscriptions.
-const string SUBSCRIPTIONS = "/subscriptions/";
-
-// ── Pub/Sub Naming ──────────────────────────────────────────────────────────────
-
-# Prefix for auto-generated Pub/Sub subscription names.
-const string SUBSCRIPTION_NAME_PREFIX = "chat-sub-";
-
-// ── Symbols ─────────────────────────────────────────────────────────────────────
-
-const string FORWARD_SLASH = "/";
-const string EMPTY_STRING = "";
-
 // ── Scopes ──────────────────────────────────────────────────────────────────────
-
-# OAuth2 scope for Pub/Sub access.
-const string PUBSUB_SCOPE = "https://www.googleapis.com/auth/pubsub";
 
 # OAuth2 scope for Chat bot access (service account).
 const string CHAT_BOT_SCOPE = "https://www.googleapis.com/auth/chat.bot";
@@ -121,22 +97,19 @@ const string EVENT_TYPE_SUBMIT_FORM = "SUBMIT_FORM";
 
 // ── Log Messages ────────────────────────────────────────────────────────────────
 
-const string LOG_PUBSUB_SUB_CREATED = "Pub/Sub subscription created: ";
 const string LOG_EVENT_RECEIVED = "Chat event received: ";
 const string LOG_EVENT_DECODED = "Chat event decoded: ";
 const string LOG_EVENT_DISPATCHED = "Chat event dispatched: ";
 
 // ── Warning Messages ────────────────────────────────────────────────────────────
 
-const string WARN_UNKNOWN_SUBSCRIPTION = "Received push notification from unknown subscription: ";
 const string WARN_UNKNOWN_EVENT_TYPE = "Received unknown event type: ";
 const string WARN_HTTP_AUTH_FAILED = "Rejected request: bearer token verification failed";
 
 // ── Error Messages ──────────────────────────────────────────────────────────────
 
-const string ERR_SUBSCRIPTION_CREATION = "Failed to create Pub/Sub subscription.";
 const string ERR_EVENT_DISPATCH = "Failed to dispatch Chat event.";
-const string ERR_PAYLOAD_PARSE = "Failed to parse Pub/Sub message payload.";
+const string ERR_PAYLOAD_PARSE = "Failed to parse event payload.";
 const string ERR_SERVICE_ATTACH = "Service has already been attached.";
 const string ERR_SERVICE_DETACH = "Cannot detach service. Service has not been attached.";
 const string ERR_BEARER_TOKEN_MISSING = "Missing or malformed Authorization header. Expected 'Bearer <token>'.";

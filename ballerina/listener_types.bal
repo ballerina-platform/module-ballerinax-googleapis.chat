@@ -22,19 +22,9 @@ import ballerina/http;
 
 # Configuration for the Google Chat trigger listener.
 #
-# The listener supports two delivery modes, selected via the `@ServiceConfig`
-# annotation on the attached service:
-#
-# - **Pub/Sub mode** (`PubSubConfig`): The listener auto-creates a push
-#   subscription on a pre-existing topic, receives events via webhook push,
-#   and deletes the subscription on shutdown.
-# - **HTTP mode** (`HttpEndpointUrlConfig` or `ProjectNumberConfig`): The
-#   listener receives interaction events directly from Google Chat over HTTP.
-#   No Pub/Sub resources are managed.
-#
-# In both modes the `auth` credentials are used to create the internal
-# `Caller` client (for responding to events via the Chat API). In Pub/Sub mode
-# the same credentials are also used for Pub/Sub subscription management.
+# The listener receives interaction events directly from Google Chat over HTTP.
+# The `auth` credentials are used to create the internal Chat API client
+# (for responding to events via the Chat API).
 #
 # **For service account auth**: You can use one of three forms:
 # - `ServiceAccountConfig` with `issuer` plus a PEM/private-key config
@@ -46,11 +36,10 @@ import ballerina/http;
 #
 # **For bearer token auth**: Provide a pre-obtained OAuth2 access token.
 # Note that Google access tokens expire after ~1 hour; if the listener runs
-# longer, the `Caller` and (in Pub/Sub mode) the subscription cleanup call on
-# `Listener.gracefulStop()` may fail.
+# longer, the Chat API client may fail.
 #
-# + auth - Authentication for the Chat API client and (in Pub/Sub mode) for
-#           Pub/Sub subscription management (service account, OAuth2, or bearer token)
+# + auth - Authentication for the Chat API client
+#           (service account, OAuth2, or bearer token)
 # + httpListenerConfig - Optional inbound HTTP listener settings
 @display {label: "Listener Config"}
 public type ListenerConfig record {|
@@ -63,30 +52,6 @@ public type ListenerConfig record {|
 // ═══════════════════════════════════════════════════════════════════════════════
 // Service Annotation
 // ═══════════════════════════════════════════════════════════════════════════════
-
-# Pub/Sub-based configuration for the Google Chat trigger.
-#
-# Use this when your Chat app receives events via Google Cloud Pub/Sub push
-# subscriptions (e.g., when running behind a firewall or subscribing to
-# Google Workspace Events). The listener automatically creates a push
-# subscription on the given topic and deletes it on shutdown.
-#
-# The topic must already exist and be configured as the connection target
-# in the Google Chat API configuration page in Google Cloud Console.
-#
-# + topicName - Fully qualified Pub/Sub topic resource name that the Chat app
-#               is configured to publish to. Format:
-#               `projects/<project-id>/topics/<topic-name>`.
-# + callbackURL - The public URL where Pub/Sub will push events. In development,
-#                 use a tunnel like ngrok (e.g., `https://abc.ngrok.io/webhook`).
-#                 In production, use your deployed service URL.
-@display {label: "Pub/Sub Config"}
-public type PubSubConfig record {|
-    @display {label: "Pub/Sub Topic Name"}
-    string topicName;
-    @display {label: "Callback URL"}
-    string callbackURL;
-|};
 
 # HTTP mode configuration that verifies bearer tokens using the HTTP endpoint URL
 # as the audience (Google's recommended approach).
@@ -136,17 +101,8 @@ public type HttpConfig HttpEndpointUrlConfig|ProjectNumberConfig;
 
 # Service-level configuration for the Google Chat trigger.
 #
-# A union of the three supported delivery configurations. Apply one to the
-# `@chat:ServiceConfig` annotation on your `chat:ChatService`.
-#
-# **Pub/Sub mode** — events arrive via Google Cloud Pub/Sub push:
-# ```ballerina
-# @chat:ServiceConfig {
-#     topicName: "projects/my-project/topics/my-chat-topic",
-#     callbackURL: "https://my-app.example.com/webhook"
-# }
-# service chat:ChatService on chatListener { ... }
-# ```
+# Apply one of the supported HTTP configurations to the `@chat:ServiceConfig`
+# annotation on your `chat:ChatService`.
 #
 # **HTTP mode — endpoint URL verification** (recommended):
 # ```ballerina
@@ -163,16 +119,16 @@ public type HttpConfig HttpEndpointUrlConfig|ProjectNumberConfig;
 # }
 # service chat:ChatService on chatListener { ... }
 # ```
-public type ServiceConfiguration PubSubConfig|HttpConfig;
+public type ServiceConfiguration HttpConfig;
 
 # Annotation for service-level Google Chat trigger configuration.
 public annotation ServiceConfiguration ServiceConfig on service;
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Chat Interaction Event (Pub/Sub Payload)
+// Chat Interaction Event
 // ═══════════════════════════════════════════════════════════════════════════════
 
-# A Google Chat app interaction event received via Pub/Sub push.
+# A Google Chat app interaction event.
 #
 # This represents the full event payload that Google Chat sends when a user
 # interacts with the Chat app. The `type` field determines which remote function
@@ -216,7 +172,7 @@ public type ChatEvent record {
 #
 # **Example:**
 # ```ballerina
-# remote function onMessage(chat:MessageEvent event, chat:Caller caller) returns error? {
+# remote function onMessage(chat:MessageEvent event, chat:MessageCaller caller) returns error? {
 #     string text = event.message.text ?: "(no text)";  // no ?. needed on .message
 # }
 # ```
@@ -237,84 +193,37 @@ public type MessageEvent record {
 # corresponds to a specific event type. You only need to implement the handlers
 # relevant to your Chat app.
 #
-# Each handler can accept just the event, or both the event and a `Caller`:
-# ```ballerina
-# // Without Caller (event-only)
-# remote function onMessage(chat:ChatEvent event) returns error? { ... }
+# Each handler receives the event and an event-specific Caller for responding.
+# The Caller's `respond()` method sends a synchronous HTTP response back to
+# Google Chat. Additional async Chat API operations (sendMessage, updateMessage,
+# etc.) are available on callers that support them.
 #
-# // With Caller (enables bot-safe message and space operations)
-# remote function onMessage(chat:ChatEvent event, chat:Caller caller) returns error? {
-#     chat:Message message = check caller->reply("Hello!");
-#     check caller->deleteMessage(message);
+# ```ballerina
+# remote function onMessage(chat:MessageEvent event, chat:MessageCaller caller) returns error? {
+#     check caller->respond({ text: "Got your message!" });
+# }
+#
+# remote function onAppHome(chat:ChatEvent event, chat:AppHomeCaller caller) returns error? {
+#     check caller->respond({ sections: [{ widgets: [{ textParagraph: { text: "Welcome!" } }] }] });
 # }
 # ```
 #
 # **Available event handlers:**
-# - `onMessage` - A user sends a message (DM, @mention, slash command).
-#                 Accepts `ChatEvent` or `MessageEvent` as the event parameter.
-#                 Use `MessageEvent` for compile-time guarantee that `message` is non-nil.
-# - `onAddedToSpace` - The app is added to a space
-# - `onRemovedFromSpace` - The app is removed from a space
-# - `onCardClicked` - A user clicks a button/card element
-# - `onWidgetUpdated` - A user updates a widget in a card or dialog
-# - `onAppCommand` - A user invokes a slash or quick command
-# - `onAppHome` - A user navigates to the app home
-# - `onSubmitForm` - A user submits a form/dialog
+# - `onMessage(MessageEvent|ChatEvent, MessageCaller)` - A user sends a message
+# - `onAddedToSpace(ChatEvent, MessageCaller)` - The app is added to a space
+# - `onRemovedFromSpace(ChatEvent)` - The app is removed from a space (no caller)
+# - `onCardClicked(ChatEvent, CardClickedCaller)` - A user clicks a button/card element
+# - `onWidgetUpdated(ChatEvent, WidgetUpdatedCaller)` - A user updates a widget
+# - `onAppCommand(ChatEvent, MessageCaller)` - A user invokes a command
+# - `onAppHome(ChatEvent, AppHomeCaller)` - A user navigates to the app home
+# - `onSubmitForm(ChatEvent, SubmitFormCaller)` - A user submits a form from app home
 public type ChatService distinct service object {
     // The service type is kept minimal. The native Java dispatcher inspects
-    // the actual remote function signatures at runtime to determine whether
-    // to inject a Caller parameter alongside the ChatEvent.
+    // the actual remote function signatures at runtime to determine which
+    // event-specific Caller to inject alongside the ChatEvent.
 };
 
 # Union type for all service types the listener can attach.
 public type GenericServiceType ChatService;
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Pub/Sub Internal Types
-// ═══════════════════════════════════════════════════════════════════════════════
 
-# Holds the resource name of the Pub/Sub subscription created by the listener.
-#
-# + subscriptionResource - Fully qualified subscription resource name
-type SubscriptionDetail record {
-    string subscriptionResource;
-};
-
-# Represents a Pub/Sub subscription request.
-#
-# + pushEndpoint - URL where messages should be pushed
-# + attributes - Endpoint configuration attributes
-# + oidcToken - OIDC token for authenticating push requests
-type PushConfig record {
-    string pushEndpoint;
-    map<string> attributes?;
-    OidcToken oidcToken?;
-};
-
-# OIDC token configuration for Pub/Sub push authentication.
-#
-# + serviceAccountEmail - Service account email for generating the token
-# + audience - Audience claim for the token
-type OidcToken record {
-    string serviceAccountEmail;
-    string audience;
-};
-
-# Represents a Pub/Sub subscription request.
-#
-# + topic - The topic to subscribe to
-# + pushConfig - Push delivery configuration
-# + ackDeadlineSeconds - Acknowledgment deadline in seconds
-type SubscriptionRequest record {
-    string topic;
-    PushConfig pushConfig;
-    int ackDeadlineSeconds?;
-};
-
-# Represents a Pub/Sub subscription resource.
-#
-# + name - Fully qualified name of the subscription
-type Subscription record {
-    string name;
-    *SubscriptionRequest;
-};

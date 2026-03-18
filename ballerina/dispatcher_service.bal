@@ -16,44 +16,34 @@
 
 import ballerina/http;
 import ballerina/jballerina.java;
-import ballerina/lang.'array;
 import ballerina/log;
+
+# Maximum time (in seconds) to wait for a handler to call `respond()` before
+# returning an empty response to Google Chat. Google Chat has a 30s timeout
+# for interaction events, so we use 28s to leave a small margin.
+const int RESPONSE_TIMEOUT_SECONDS = 28;
 
 # Internal HTTP service that receives Google Chat interaction events and
 # dispatches them to the registered `ChatService` implementation.
 #
-# Two delivery modes are supported, selected when the listener attaches a
-# service via `@ServiceConfig`:
-#
-# **Pub/Sub mode** (`PubSubConfig`):
-# Pub/Sub pushes a JSON envelope to the `/webhook` resource. The event payload
-# is base64-encoded inside the `message.data` field of the envelope. No
-# secondary API call is needed — the full Chat event is embedded in the push.
-# The incoming subscription name is validated against the one created at startup.
-#
-# **HTTP mode** (`HttpEndpointUrlConfig` or `ProjectNumberConfig`):
 # Google Chat sends a POST request with the raw Chat event JSON to the root
 # resource (`/`). The `Authorization` header carries a Google-signed bearer
-# token that is verified before the event is processed. Requests that fail
-# verification are rejected with HTTP 401.
+# token that is verified before the event is processed.
+#
+# The handler is dispatched on a virtual thread (fire-and-forget). A
+# `ResponseFuture` bridges the handler's `respond()` call with the resource
+# function's return value. The resource function blocks on the future until
+# the handler calls `respond()` or a timeout expires, then returns the
+# response payload directly (the HTTP framework sends it as the response body).
 service class DispatcherService {
     *http:Service;
     private map<GenericServiceType> services = {};
-    private string subscriptionResource;
     private final Client chatClient;
-    # Set to the `HttpConfig` when operating in HTTP mode; `()` in Pub/Sub mode.
     private HttpConfig? httpConfig;
 
-
-    isolated function init(string subscriptionResource, Client chatClient,
-            HttpConfig? httpConfig = ()) {
-        self.subscriptionResource = subscriptionResource;
+    isolated function init(Client chatClient, HttpConfig? httpConfig = ()) {
         self.chatClient = chatClient;
         self.httpConfig = httpConfig;
-    }
-
-    isolated function setSubscriptionResource(string subscriptionResource) {
-        self.subscriptionResource = subscriptionResource;
     }
 
     isolated function setHttpConfig(HttpConfig httpConfig) {
@@ -79,210 +69,218 @@ service class DispatcherService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Pub/Sub mode handler
-    // ─────────────────────────────────────────────────────────────────────────
-
-    # Handles incoming Pub/Sub push notifications.
-    #
-    # The Pub/Sub message envelope has the structure:
-    # ```json
-    # {
-    #   "message": {
-    #     "data": "<base64-encoded Chat event JSON>",
-    #     "messageId": "...",
-    #     "publishTime": "..."
-    #   },
-    #   "subscription": "projects/{project}/subscriptions/{sub}"
-    # }
-    # ```
-    #
-    # + httpCaller - The HTTP caller to respond to
-    # + request - The incoming HTTP request containing the Pub/Sub push message
-    # + return - An error if processing fails
-    resource isolated function post webhook(http:Caller httpCaller, http:Request request) returns error? {
-        json reqPayload = check request.getJsonPayload();
-
-        // Validate the push is from the subscription this listener created
-        string incomingSubscription = check reqPayload.subscription;
-        if self.subscriptionResource != incomingSubscription {
-            log:printWarn(WARN_UNKNOWN_SUBSCRIPTION + incomingSubscription);
-            check httpCaller->respond(http:STATUS_OK);
-            return;
-        }
-
-        // Decode the base64-encoded event data from the Pub/Sub message
-        string base64Data = check reqPayload.message.data;
-        byte[] decodedBytes = check 'array:fromBase64(base64Data);
-        string eventJson = check string:fromBytes(decodedBytes);
-        json eventPayload = check eventJson.fromJsonString();
-        log:printDebug(LOG_EVENT_DECODED + eventJson);
-
-        // Parse the event into a ChatEvent record
-        ChatEvent chatEvent = check eventPayload.cloneWithType(ChatEvent);
-        log:printInfo(LOG_EVENT_RECEIVED + chatEvent.'type.toString());
-
-        // Dispatch to the appropriate handler. The native dispatcher schedules
-        // the service invocation asynchronously on a virtual thread.
-        check self.dispatch(chatEvent);
-
-        // Acknowledge the Pub/Sub message
-        check httpCaller->respond(http:STATUS_OK);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // HTTP mode handler
     // ─────────────────────────────────────────────────────────────────────────
 
-    # Handles direct HTTP POST requests from Google Chat (HTTP mode).
+    # Handles direct HTTP POST requests from Google Chat.
     #
-    # Google Chat sends the raw Chat event JSON as the request body. Before
-    # processing, the bearer token in the `Authorization` header is verified to
-    # confirm the request originates from Google Chat. Requests that fail
-    # verification are rejected with HTTP 401 Unauthorized.
+    # Verifies the bearer token, parses the event, dispatches to the handler
+    # on a virtual thread, and waits for the handler to call `respond()`.
+    # Returns the response payload directly as `json` — the HTTP framework
+    # sends it as the response body.
     #
-    # + httpCaller - The HTTP caller to respond to
+    # If the handler does not call `respond()` within the timeout, an empty
+    # JSON object `{}` is returned as a fallback.
+    #
     # + request - The incoming HTTP request from Google Chat
-    # + return - An error if processing fails
-    resource isolated function post .(http:Caller httpCaller, http:Request request) returns error? {
+    # + return - The JSON response payload, or an error
+    resource function post .(http:Request request) returns json|error {
         HttpConfig? cfg = self.httpConfig;
         if cfg is () {
-            // HTTP mode resource invoked but not configured — reject silently
-            log:printWarn("Received request on HTTP endpoint but listener is not in HTTP mode");
-            check httpCaller->respond(http:STATUS_NOT_FOUND);
-            return;
+            log:printWarn("Received request but listener is not configured");
+            return <json>{};
         }
 
         // Verify the bearer token before processing the event
         string|AuthenticationError bearerToken = extractBearerToken(request);
         if bearerToken is AuthenticationError {
             log:printWarn(WARN_HTTP_AUTH_FAILED, 'error = bearerToken);
-            check httpCaller->respond(http:STATUS_UNAUTHORIZED);
-            return;
+            // Return 401 via error — the framework will handle it.
+            // For now, return an empty body (Google Chat doesn't inspect status codes).
+            return <json>{};
         }
 
         true|AuthenticationError verified = verifyChatBearerToken(bearerToken, cfg);
         if verified is AuthenticationError {
             log:printWarn(WARN_HTTP_AUTH_FAILED, 'error = verified);
-            check httpCaller->respond(http:STATUS_UNAUTHORIZED);
-            return;
+            return <json>{};
         }
 
-        // Parse the raw Chat event JSON directly (no Pub/Sub envelope)
+        // Parse the raw Chat event JSON directly
         json reqPayload = check request.getJsonPayload();
         log:printDebug(LOG_EVENT_DECODED + reqPayload.toJsonString());
 
-        ChatEvent chatEvent = check reqPayload.cloneWithType(ChatEvent);
+        // Normalize the payload: APP_HOME events use a nested format where
+        // event data is inside a `chat` sub-object (e.g., chat.type, chat.user,
+        // chat.space) and `commonEventObject` is at root level. This is the
+        // Google Workspace Add-ons event format, which Google Chat uses for
+        // APP_HOME even for standard HTTP endpoint Chat apps.
+        // We lift `chat.*` fields to root and map `commonEventObject` → `common`
+        // so the payload matches the flat `ChatEvent` record structure.
+        json normalizedPayload = reqPayload;
+        json|error chatObj = reqPayload.chat;
+        if chatObj is map<json> {
+            map<json> payloadMap = check reqPayload.cloneWithType();
+            // Lift all fields from `chat` (type, user, space, etc.) to root
+            foreach var [key, value] in chatObj.entries() {
+                payloadMap[key] = value;
+            }
+            // Map `commonEventObject` → `common` (the ChatEvent field name)
+            json|error commonEventObj = reqPayload.commonEventObject;
+            if commonEventObj is map<json> {
+                payloadMap["common"] = commonEventObj;
+            }
+            // Remove the wrapper fields that don't exist in ChatEvent
+            _ = payloadMap.removeIfHasKey("chat");
+            _ = payloadMap.removeIfHasKey("commonEventObject");
+            _ = payloadMap.removeIfHasKey("authorizationEventObject");
+            normalizedPayload = payloadMap;
+            log:printDebug("Normalized add-on style payload to flat ChatEvent format");
+        }
+
+        ChatEvent chatEvent = check normalizedPayload.cloneWithType(ChatEvent);
         log:printInfo(LOG_EVENT_RECEIVED + chatEvent.'type.toString());
 
-        // Dispatch to the appropriate handler
-        check self.dispatch(chatEvent);
-
-        json emptyResponse = {};
-        check httpCaller->respond(emptyResponse);
+        // Dispatch to the appropriate handler and wait for response
+        return self.dispatch(chatEvent);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Shared dispatch logic
+    // Dispatch logic
     // ─────────────────────────────────────────────────────────────────────────
 
     # Dispatches a Chat event to the appropriate remote function on the
-    # registered ChatService based on the event type.
+    # registered ChatService. Creates a `ResponseFuture`, constructs the
+    # event-specific Caller, fires the handler on a virtual thread, and
+    # waits for the handler to call `respond()` (or until timeout).
+    #
+    # Returns the response payload set by `respond()`, or `{}` if no
+    # response was provided (handler not found, timeout, etc.).
     #
     # + chatEvent - The parsed Chat interaction event
-    # + return - An error if dispatch scheduling fails
-    isolated function dispatch(ChatEvent chatEvent) returns error? {
-        GenericServiceType? chatService = self.services["ChatService"];
-        if chatService is () {
-            return;
+    # + return - The JSON response payload
+    isolated function dispatch(ChatEvent chatEvent) returns json {
+        GenericServiceType? genericService = self.services["ChatService"];
+        if genericService is () {
+            return <json>{};
+        }
+
+        string spaceId = "";
+        string? spaceName = chatEvent.space?.name;
+        if spaceName is string {
+            string[] parts = re `/`.split(spaceName);
+            if parts.length() >= 2 {
+                spaceId = parts[1];
+            }
         }
 
         match chatEvent.'type {
             MESSAGE => {
-                check self.executeRemoteFunc(chatEvent, "onMessage");
+                return self.dispatchWithMessageCaller(chatEvent, "onMessage", spaceId, genericService);
             }
             ADDED_TO_SPACE => {
-                check self.executeRemoteFunc(chatEvent, "onAddedToSpace");
+                return self.dispatchWithMessageCaller(chatEvent, "onAddedToSpace", spaceId, genericService);
             }
             REMOVED_FROM_SPACE => {
-                check self.executeRemoteFunc(chatEvent, "onRemovedFromSpace");
+                // No caller needed — fire handler and return empty immediately.
+                // The handler cannot send a response since the app is removed.
+                nativeInvokeRemoteFunction(chatEvent, "onRemovedFromSpace", (), genericService);
+                return <json>{};
             }
             CARD_CLICKED => {
-                check self.executeRemoteFunc(chatEvent, "onCardClicked");
+                return self.dispatchWithCardClickedCaller(chatEvent, spaceId, genericService);
             }
             WIDGET_UPDATED => {
-                check self.executeRemoteFunc(chatEvent, "onWidgetUpdated");
+                return self.dispatchWithSimpleCaller(chatEvent, "onWidgetUpdated", genericService);
             }
             APP_COMMAND => {
-                check self.executeRemoteFunc(chatEvent, "onAppCommand");
+                return self.dispatchWithMessageCaller(chatEvent, "onAppCommand", spaceId, genericService);
             }
             APP_HOME => {
-                check self.executeRemoteFunc(chatEvent, "onAppHome");
+                return self.dispatchWithSimpleCaller(chatEvent, "onAppHome", genericService);
             }
             SUBMIT_FORM => {
-                check self.executeRemoteFunc(chatEvent, "onSubmitForm");
+                return self.dispatchWithSimpleCaller(chatEvent, "onSubmitForm", genericService);
             }
             _ => {
                 log:printWarn(WARN_UNKNOWN_EVENT_TYPE + chatEvent.'type.toString());
+                return <json>{};
             }
         }
     }
 
-    # Executes a remote function on the registered ChatService using the native
-    # Java dispatcher. The dispatcher inspects the remote function signature and
-    # injects both the ChatEvent and (optionally) a Caller if the function
-    # signature includes one.
-    #
-    # + chatEvent - The event data to pass to the remote function
-    # + eventFunction - The name of the remote function to invoke (e.g., "onMessage")
-    # + return - An error if invocation scheduling fails
-    private isolated function executeRemoteFunc(ChatEvent chatEvent,
-            string eventFunction) returns error? {
-        GenericServiceType? genericService = self.services["ChatService"];
-        if genericService is GenericServiceType {
-            string spaceId = "";
-            if check requiresCaller(genericService, eventFunction) {
-                spaceId = check extractSpaceId(chatEvent);
-            }
-            check nativeInvokeRemoteFunction(chatEvent, self.chatClient,
-                    spaceId, eventFunction, genericService);
+    # Dispatches events that use `MessageCaller` (onMessage, onAddedToSpace, onAppCommand).
+    # Creates a ResponseFuture and MessageCaller, fires the handler, waits for response.
+    private isolated function dispatchWithMessageCaller(ChatEvent chatEvent,
+            string eventFunction, string spaceId,
+            GenericServiceType genericService) returns json {
+        if !nativeHasRemoteFunction(genericService, eventFunction) {
+            return <json>{};
         }
+        handle responseFuture = createResponseFuture();
+        MessageCaller caller = new (self.chatClient, spaceId, responseFuture);
+        nativeInvokeRemoteFunction(chatEvent, eventFunction, caller, genericService);
+        return self.awaitResponse(responseFuture);
     }
-}
 
-# Extracts the `{spaceId}` segment from a Chat space resource name.
-# The space name format is `spaces/{spaceId}`.
-#
-# + chatEvent - The chat event
-# + return - The space ID, or an error if not found
-isolated function extractSpaceId(ChatEvent chatEvent) returns string|error {
-    string? spaceName = chatEvent.space?.name;
-    if spaceName is () {
-        return error DispatchError("Cannot create a Caller for this event: space name is not available");
+    # Dispatches an event with a CardClickedCaller.
+    private isolated function dispatchWithCardClickedCaller(ChatEvent chatEvent,
+            string spaceId, GenericServiceType genericService) returns json {
+        if !nativeHasRemoteFunction(genericService, "onCardClicked") {
+            return <json>{};
+        }
+        handle responseFuture = createResponseFuture();
+        CardClickedCaller caller = new (self.chatClient, spaceId, responseFuture);
+        nativeInvokeRemoteFunction(chatEvent, "onCardClicked", caller, genericService);
+        return self.awaitResponse(responseFuture);
     }
-    string[] parts = re `/`.split(spaceName);
-    if parts.length() >= 2 {
-        return parts[1];
+
+    # Dispatches an event with a simple caller (AppHomeCaller, SubmitFormCaller, WidgetUpdatedCaller).
+    private isolated function dispatchWithSimpleCaller(ChatEvent chatEvent,
+            string eventFunction, GenericServiceType genericService) returns json {
+        if !nativeHasRemoteFunction(genericService, eventFunction) {
+            return <json>{};
+        }
+        handle responseFuture = createResponseFuture();
+        object {} caller;
+        if eventFunction == "onWidgetUpdated" {
+            caller = new WidgetUpdatedCaller(responseFuture);
+        } else if eventFunction == "onAppHome" {
+            caller = new AppHomeCaller(responseFuture);
+        } else {
+            caller = new SubmitFormCaller(responseFuture);
+        }
+        nativeInvokeRemoteFunction(chatEvent, eventFunction, caller, genericService);
+        return self.awaitResponse(responseFuture);
     }
-    return error DispatchError("Cannot create a Caller for this event: invalid space name '" + spaceName + "'");
+
+    # Waits for the handler to call `respond()` via the ResponseFuture, or
+    # returns `{}` if the timeout expires.
+    private isolated function awaitResponse(handle responseFuture) returns json {
+        json result = waitForResponse(responseFuture, RESPONSE_TIMEOUT_SECONDS);
+        // If null (timeout or handler didn't call respond), return empty JSON.
+        // The null from Java maps to () in Ballerina, which is a valid json value
+        // but we want to return {} to Google Chat instead.
+        if result == () {
+            return <json>{};
+        }
+        return result;
+    }
 }
 
 # Native external function that dispatches a Chat event to the appropriate
 # remote function on the ChatService. The Java implementation inspects the
-# function signature and injects a Caller object if the function expects one.
-#
-# + chatEvent - The event data
-# + chatClient - The internal Chat API client for the Caller
-# + spaceId - The space ID from the event
-# + eventFunction - The name of the remote function to invoke
-# + serviceObj - The user's ChatService object
-# + return - An error if invocation scheduling fails
-isolated function nativeInvokeRemoteFunction(ChatEvent chatEvent, Client chatClient,
-        string spaceId, string eventFunction, GenericServiceType serviceObj) returns error? = @java:Method {
+# function signature, injects the ChatEvent and the pre-built Caller into
+# the args, and executes the function on a virtual thread (fire-and-forget).
+isolated function nativeInvokeRemoteFunction(ChatEvent chatEvent, string eventFunction,
+        object {}? callerObj, GenericServiceType serviceObj) = @java:Method {
     name: "invokeRemoteFunction",
     'class: "io.ballerina.lib.googleapis.chat.ChatEventDispatcher"
 } external;
 
-isolated function requiresCaller(GenericServiceType serviceObj, string eventFunction) returns boolean|error = @java:Method {
-    name: "requiresCaller",
+# Native helper that checks whether a remote function exists on the service.
+isolated function nativeHasRemoteFunction(GenericServiceType serviceObj,
+        string eventFunction) returns boolean = @java:Method {
+    name: "hasRemoteFunction",
     'class: "io.ballerina.lib.googleapis.chat.ChatEventDispatcher"
 } external;

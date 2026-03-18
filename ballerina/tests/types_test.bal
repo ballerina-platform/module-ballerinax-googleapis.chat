@@ -648,16 +648,6 @@ function testCardConstruction() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @test:Config {}
-function testPubSubConfigRecordCreation() {
-    PubSubConfig config = {
-        topicName: "projects/my-project/topics/my-topic",
-        callbackURL: "https://my-app.example.com/webhook"
-    };
-    test:assertEquals(config.topicName, "projects/my-project/topics/my-topic");
-    test:assertEquals(config.callbackURL, "https://my-app.example.com/webhook");
-}
-
-@test:Config {}
 function testHttpEndpointUrlConfigRecordCreation() {
     HttpEndpointUrlConfig config = {
         endpointUrl: "https://my-app.example.com"
@@ -674,24 +664,12 @@ function testProjectNumberConfigRecordCreation() {
 }
 
 @test:Config {}
-function testServiceConfigurationUnionIsPubSub() {
-    ServiceConfiguration cfg = {
-        topicName: "projects/p/topics/t",
-        callbackURL: "https://example.com/webhook"
-    };
-    test:assertTrue(cfg is PubSubConfig);
-    test:assertFalse(cfg is HttpEndpointUrlConfig);
-    test:assertFalse(cfg is ProjectNumberConfig);
-}
-
-@test:Config {}
 function testServiceConfigurationUnionIsHttpEndpointUrl() {
     ServiceConfiguration cfg = {
         endpointUrl: "https://example.com"
     };
     test:assertTrue(cfg is HttpEndpointUrlConfig);
     test:assertTrue(cfg is HttpConfig);
-    test:assertFalse(cfg is PubSubConfig);
     test:assertFalse(cfg is ProjectNumberConfig);
 }
 
@@ -702,7 +680,6 @@ function testServiceConfigurationUnionIsProjectNumber() {
     };
     test:assertTrue(cfg is ProjectNumberConfig);
     test:assertTrue(cfg is HttpConfig);
-    test:assertFalse(cfg is PubSubConfig);
     test:assertFalse(cfg is HttpEndpointUrlConfig);
 }
 

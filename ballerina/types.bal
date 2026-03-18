@@ -364,6 +364,7 @@ public type Message record {
 # + fallbackText - Plain-text description of message cards
 # + actionResponse - Parameters for configuring how the response is posted
 # + attachment - User-uploaded attachments to include in the message
+# + privateMessageViewer - If set, the message is only visible to this user and the Chat app
 # + quotedMessageMetadata - Information about the quoted message
 # + accessoryWidgets - Interactive widgets at the bottom of the message
 public type CreateMessageRequest record {|
@@ -373,6 +374,7 @@ public type CreateMessageRequest record {|
     string fallbackText?;
     ActionResponse actionResponse?;
     Attachment[] attachment?;
+    User privateMessageViewer?;
     QuotedMessageMetadata quotedMessageMetadata?;
     AccessoryWidget[] accessoryWidgets?;
 |};
@@ -1641,3 +1643,39 @@ public type ListSpaceEventsResponse record {
     string nextPageToken?;
     SpaceEvent[] spaceEvents?;
 };
+
+// ── Render Actions (App Home Responses) ─────────────────────────────────────────
+
+# A navigation action within an app home RenderActions response.
+#
+# Exactly one of the fields should be set to indicate the navigation type.
+#
+# + pushCard - A card to push onto the navigation stack (used for initial APP_HOME response)
+# + updateCard - A card to replace the current card (used for SUBMIT_FORM / card interaction responses)
+public type Navigation record {|
+    Card pushCard?;
+    Card updateCard?;
+|};
+
+# An action containing navigations for an app home RenderActions response.
+#
+# + navigations - The list of navigation actions to perform
+public type RenderAction record {|
+    Navigation[] navigations;
+|};
+
+# Response structure for APP_HOME events.
+# Wraps a RenderAction with navigation to display the app home card.
+#
+# + action - The render action containing card navigations
+public type AppHomeResponse record {|
+    RenderAction action;
+|};
+
+# Response structure for SUBMIT_FORM and card interaction events from app home.
+# Wraps a RenderAction to update the app home card.
+#
+# + action - The render action containing card navigations
+public type RenderActionsResponse record {|
+    RenderAction action;
+|};

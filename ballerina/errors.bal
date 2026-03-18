@@ -23,9 +23,6 @@ public type ClientError distinct error;
 # Represents an error when resolving service account credentials.
 public type ServiceAccountError distinct error;
 
-# Represents an error when Pub/Sub topic or subscription management fails.
-public type PubSubError distinct error;
-
 # Represents an error when dispatching an event to the service fails.
 public type DispatchError distinct error;
 

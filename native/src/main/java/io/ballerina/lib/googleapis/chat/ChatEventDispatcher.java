@@ -20,7 +20,6 @@ import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.Runtime;
 import io.ballerina.runtime.api.concurrent.StrandMetadata;
 import io.ballerina.runtime.api.creators.ErrorCreator;
-import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.MethodType;
 import io.ballerina.runtime.api.types.ObjectType;
 import io.ballerina.runtime.api.types.Parameter;
@@ -44,21 +43,28 @@ import java.util.Set;
 
 /**
  * Native dispatcher for Google Chat events. Inspects the remote function signature on the user's {@code ChatService}
- * and injects both the {@code ChatEvent} record and (optionally) a {@code Caller} client object.
+ * and injects the {@code ChatEvent} record and a pre-built event-specific Caller into the arguments.
  * <p>
- * This replaces the generic {@code asyncapi.native.handler:NativeHandler} which only supports passing a single event
- * argument.
+ * The handler is executed on a virtual thread (fire-and-forget). The Caller holds an {@code http:Caller}
+ * reference so the user's handler can write the HTTP response immediately via {@code respond()}.
  *
- * @since 0.1.0
+ * @since 0.2.0
  */
 public final class ChatEventDispatcher {
 
     private static final PrintStream ERR_OUT = System.err;
     private static final String CHAT_EVENT_RECORD = "ChatEvent";
     private static final String MESSAGE_EVENT_RECORD = "MessageEvent";
-    private static final String CALLER_OBJECT = "Caller";
     private static final String ORG_NAME = "ballerinax";
     private static final String MODULE_NAME = "googleapis.chat";
+
+    // Event-specific Caller class names
+    private static final Set<String> CALLER_TYPES = Set.of(
+            "MessageCaller", "AppHomeCaller", "CardClickedCaller",
+            "SubmitFormCaller", "WidgetUpdatedCaller"
+    );
+
+    // Remote function names
     private static final String FUNC_ON_MESSAGE = "onMessage";
     private static final String FUNC_ON_ADDED_TO_SPACE = "onAddedToSpace";
     private static final String FUNC_ON_REMOVED_FROM_SPACE = "onRemovedFromSpace";
@@ -67,57 +73,63 @@ public final class ChatEventDispatcher {
     private static final String FUNC_ON_APP_COMMAND = "onAppCommand";
     private static final String FUNC_ON_APP_HOME = "onAppHome";
     private static final String FUNC_ON_SUBMIT_FORM = "onSubmitForm";
+
     private static final Set<String> VALID_REMOTE_METHODS = new HashSet<>(Set.of(
-            FUNC_ON_MESSAGE,
-            FUNC_ON_ADDED_TO_SPACE,
-            FUNC_ON_REMOVED_FROM_SPACE,
-            FUNC_ON_CARD_CLICKED,
-            FUNC_ON_WIDGET_UPDATED,
-            FUNC_ON_APP_COMMAND,
-            FUNC_ON_APP_HOME,
-            FUNC_ON_SUBMIT_FORM
+            FUNC_ON_MESSAGE, FUNC_ON_ADDED_TO_SPACE, FUNC_ON_REMOVED_FROM_SPACE,
+            FUNC_ON_CARD_CLICKED, FUNC_ON_WIDGET_UPDATED, FUNC_ON_APP_COMMAND,
+            FUNC_ON_APP_HOME, FUNC_ON_SUBMIT_FORM
     ));
+
+    // Map of function name to expected caller type
+    private static final Map<String, String> FUNCTION_CALLER_MAP = Map.of(
+            FUNC_ON_MESSAGE, "MessageCaller",
+            FUNC_ON_ADDED_TO_SPACE, "MessageCaller",
+            FUNC_ON_APP_COMMAND, "MessageCaller",
+            FUNC_ON_CARD_CLICKED, "CardClickedCaller",
+            FUNC_ON_APP_HOME, "AppHomeCaller",
+            FUNC_ON_SUBMIT_FORM, "SubmitFormCaller",
+            FUNC_ON_WIDGET_UPDATED, "WidgetUpdatedCaller"
+    );
 
     private ChatEventDispatcher() {
     }
 
     /**
-     * Invokes a remote function on the given service object, injecting {@code ChatEvent} and optionally {@code Caller}
-     * based on the function signature.
-     * <p>
-     * Called from Ballerina via {@code @java:Method} external binding.
+     * Invokes a remote function on the given service object. The ChatEvent and the pre-built Caller
+     * are injected into the arguments based on the function signature. The handler is executed on a
+     * virtual thread (fire-and-forget).
      *
      * @param env           the Ballerina runtime environment
      * @param chatEvent     the ChatEvent record (BMap)
-     * @param chatClient    the internal chat:Client BObject for API calls
-     * @param spaceId       the space ID extracted from the event
      * @param eventFunction the name of the remote function to invoke
+     * @param callerObj     the pre-built event-specific Caller BObject, or null for no-caller events
      * @param serviceObj    the user's ChatService object
-     * @return {@code null} after scheduling the invocation
+     * @return {@code null} always (fire-and-forget)
      */
-    public static Object invokeRemoteFunction(Environment env, BMap<BString, Object> chatEvent, BObject chatClient,
-                                              BString spaceId, BString eventFunction, BObject serviceObj) {
+    public static void invokeRemoteFunction(Environment env, BMap<BString, Object> chatEvent,
+                                           BString eventFunction, Object callerObj, BObject serviceObj) {
         Runtime runtime = env.getRuntime();
         String functionName = eventFunction.getValue();
 
         MethodType remoteFunction = getAttachedFunction(serviceObj, functionName);
         if (remoteFunction == null) {
-            return null;
+            // Function not implemented — nothing to dispatch
+            return;
         }
 
         Parameter[] parameters = remoteFunction.getParameters();
         Object[] args = new Object[parameters.length];
-        boolean callerFound = false;
 
         for (int i = 0; i < parameters.length; i++) {
             Type referredType = TypeUtils.getReferredType(parameters[i].type);
             if (referredType.getTag() == TypeTags.OBJECT_TYPE_TAG) {
-                if (callerFound) {
-                    logInvalidSignature(functionName, "multiple Caller parameters are not supported");
-                    return null;
+                String typeName = referredType.getName();
+                if (CALLER_TYPES.contains(typeName) && callerObj != null) {
+                    args[i] = callerObj;
+                } else {
+                    logInvalidSignature(functionName, "unsupported parameter type '" + typeName + "'");
+                    return;
                 }
-                callerFound = true;
-                args[i] = createCallerObject(chatClient, spaceId);
             } else if (referredType.getTag() == TypeTags.RECORD_TYPE_TAG &&
                     (CHAT_EVENT_RECORD.equals(referredType.getName()) ||
                      MESSAGE_EVENT_RECORD.equals(referredType.getName()) ||
@@ -125,10 +137,11 @@ public final class ChatEventDispatcher {
                 args[i] = chatEvent;
             } else {
                 logInvalidSignature(functionName, "unsupported parameter type '" + referredType.getName() + "'");
-                return null;
+                return;
             }
         }
 
+        // Fire-and-forget on a virtual thread
         ObjectType serviceType = (ObjectType) TypeUtils.getReferredType(TypeUtils.getType(serviceObj));
         boolean isConcurrentSafe = serviceType.isIsolated() && serviceType.isIsolated(functionName);
         Map<String, Object> properties = getProperties(functionName);
@@ -148,32 +161,24 @@ public final class ChatEventDispatcher {
                 throwable.printStackTrace(ERR_OUT);
             }
         });
-        return null;
     }
 
     /**
-     * Creates a {@code Caller} BObject by invoking its Ballerina init function with the chat client, space ID, and
-     * message ID.
+     * Checks whether a remote function exists on the given service object.
+     * Called from Ballerina to determine whether to create a Caller and dispatch,
+     * or to respond with an empty body immediately.
+     *
+     * @param serviceObj    the user's ChatService object
+     * @param eventFunction the name of the remote function to check
+     * @return {@code true} if the function exists, {@code false} otherwise
      */
-    private static BObject createCallerObject(BObject chatClient, BString spaceId) {
-        return ValueCreator.createObjectValue(ModuleUtils.getModule(),
-                CALLER_OBJECT, chatClient, spaceId);
+    public static boolean hasRemoteFunction(BObject serviceObj, BString eventFunction) {
+        return getAttachedFunction(serviceObj, eventFunction.getValue()) != null;
     }
 
-    public static boolean requiresCaller(BObject serviceObj, BString eventFunction) {
-        MethodType remoteFunction = getAttachedFunction(serviceObj, eventFunction.getValue());
-        if (remoteFunction == null) {
-            return false;
-        }
-        for (Parameter parameter : remoteFunction.getParameters()) {
-            Type referredType = TypeUtils.getReferredType(parameter.type);
-            if (referredType.getTag() == TypeTags.OBJECT_TYPE_TAG && CALLER_OBJECT.equals(referredType.getName())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
+    /**
+     * Validates the service object to ensure all remote methods have valid signatures.
+     */
     public static Object validateService(BObject serviceObj) {
         ServiceType serviceType = (ServiceType) TypeUtils.getReferredType(TypeUtils.getType(serviceObj));
         RemoteMethodType[] remoteMethods = serviceType.getRemoteMethods();
@@ -194,17 +199,14 @@ public final class ChatEventDispatcher {
 
     private static BError validateRemoteMethod(RemoteMethodType remoteMethod, String methodName) {
         Parameter[] parameters = remoteMethod.getParameters();
+
         if (parameters.length < 1 || parameters.length > 2) {
             return createValidationError("Invalid parameter count for remote method '" + methodName +
-                    "'. Expected (ChatEvent) or (ChatEvent, Caller)");
+                    "'. Expected 1 or 2 parameters: (ChatEvent) or (ChatEvent, <Caller>)");
         }
 
         boolean isOnMessage = FUNC_ON_MESSAGE.equals(methodName);
         Type firstType = TypeUtils.getReferredType(parameters[0].type);
-        // For onMessage, accept any record type — covers ChatEvent, MessageEvent, and any user-defined
-        // subtypes. The Ballerina compiler enforces structural compatibility at compile time, so whatever
-        // record reaches here is already guaranteed to be structurally valid.
-        // For all other handlers, require exactly ChatEvent by name.
         boolean isValidFirstParam = firstType.getTag() == TypeTags.RECORD_TYPE_TAG &&
                 (isOnMessage || CHAT_EVENT_RECORD.equals(firstType.getName()));
         if (!isValidFirstParam) {
@@ -214,10 +216,20 @@ public final class ChatEventDispatcher {
 
         if (parameters.length == 2) {
             Type secondType = TypeUtils.getReferredType(parameters[1].type);
-            if (secondType.getTag() != TypeTags.OBJECT_TYPE_TAG ||
-                    !CALLER_OBJECT.equals(secondType.getName())) {
+            if (secondType.getTag() != TypeTags.OBJECT_TYPE_TAG) {
                 return createValidationError("Invalid second parameter for remote method '" + methodName +
-                        "'. Expected Caller");
+                        "'. Expected an event-specific Caller");
+            }
+            String callerName = secondType.getName();
+            if (!CALLER_TYPES.contains(callerName)) {
+                return createValidationError("Invalid second parameter for remote method '" + methodName +
+                        "'. Expected one of: MessageCaller, AppHomeCaller, CardClickedCaller, " +
+                        "SubmitFormCaller, WidgetUpdatedCaller, but got '" + callerName + "'");
+            }
+            String expectedCaller = FUNCTION_CALLER_MAP.get(methodName);
+            if (expectedCaller != null && !expectedCaller.equals(callerName)) {
+                return createValidationError("Invalid caller type for remote method '" + methodName +
+                        "'. Expected " + expectedCaller + " but got " + callerName);
             }
         }
 
@@ -258,9 +270,6 @@ public final class ChatEventDispatcher {
                 StringUtils.fromString(message));
     }
 
-    /**
-     * Finds a remote function by name on the given service object.
-     */
     private static MethodType getAttachedFunction(BObject serviceObj, String functionName) {
         ObjectType serviceType = (ObjectType) TypeUtils.getReferredType(TypeUtils.getType(serviceObj));
         MethodType[] methods = serviceType.getMethods();
