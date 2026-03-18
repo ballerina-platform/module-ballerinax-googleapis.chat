@@ -252,8 +252,10 @@ public isolated client class CardClickedCaller {
         } else {
             Card card = <Card>response;
             RenderActionsResponse renderResponse = {
-                action: {
-                    navigations: [{updateCard: card}]
+                renderActions: {
+                    action: {
+                        navigations: [{updateCard: card}]
+                    }
                 }
             };
             payload = renderResponse.toJson();
@@ -345,13 +347,16 @@ public isolated client class SubmitFormCaller {
             self.responded = true;
         }
         RenderActionsResponse renderResponse = {
-            action: {
-                navigations: [{updateCard: card}]
+            renderActions: {
+                action: {
+                    navigations: [{updateCard: card}]
+                }
             }
         };
         json payload = renderResponse.toJson();
         completeFuture(self.responseFuture, payload);
     }
+
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

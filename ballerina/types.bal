@@ -1646,36 +1646,36 @@ public type ListSpaceEventsResponse record {
 
 // ── Render Actions (App Home Responses) ─────────────────────────────────────────
 
-# A navigation action within an app home RenderActions response.
+# A navigation entry within an app home response.
 #
 # Exactly one of the fields should be set to indicate the navigation type.
 #
-# + pushCard - A card to push onto the navigation stack (used for initial APP_HOME response)
-# + updateCard - A card to replace the current card (used for SUBMIT_FORM / card interaction responses)
+# + pushCard - A card to push onto the navigation stack (used for APP_HOME response)
+# + updateCard - A card to replace the current card (used for SUBMIT_FORM responses)
 public type Navigation record {|
     Card pushCard?;
     Card updateCard?;
 |};
 
-# An action containing navigations for an app home RenderActions response.
+# The action object containing a list of navigations.
 #
 # + navigations - The list of navigation actions to perform
-public type RenderAction record {|
+public type NavigationAction record {|
     Navigation[] navigations;
 |};
 
 # Response structure for APP_HOME events.
-# Wraps a RenderAction with navigation to display the app home card.
+# Serializes as: `{ "action": { "navigations": [{ "pushCard": ... }] } }`
 #
-# + action - The render action containing card navigations
+# + action - The action containing card navigations
 public type AppHomeResponse record {|
-    RenderAction action;
+    NavigationAction action;
 |};
 
 # Response structure for SUBMIT_FORM and card interaction events from app home.
-# Wraps a RenderAction to update the app home card.
+# Serializes as: `{ "renderActions": { "action": { "navigations": [{ "updateCard": ... }] } } }`
 #
-# + action - The render action containing card navigations
+# + renderActions - The render actions wrapper containing the action and navigations
 public type RenderActionsResponse record {|
-    RenderAction action;
+    AppHomeResponse renderActions;
 |};
