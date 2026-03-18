@@ -98,33 +98,24 @@ public class Listener {
     # annotation on the service. No external resources are created here.
     #
     # + listenOn - The port or HTTP listener to listen on. Defaults to port 8000.
-    # + listenerConfig - Configuration including auth credentials
+    # + config - Configuration including auth credentials
     # + return - An error if initialization fails
-    public function init(int|http:Listener listenOn = 8000, *ListenerConfig listenerConfig) returns error? {
+    public function init(int|http:Listener listenOn = 8000, *ListenerConfig config) returns error? {
         if listenOn is http:Listener {
             self.httpListener = listenOn;
         } else {
-            if listenerConfig.secureSocketConfig is http:ClientSecureSocket {
-                self.httpListener = check new (listenOn, secureSocket = {
-                    key: {
-                        certFile: "",
-                        keyFile: ""
-                    }
-                });
-            } else {
-                self.httpListener = check new (listenOn);
-            }
+            self.httpListener = check new (listenOn, config.httpListenerConfig);
         }
 
         // Create the Chat API client — used by the Caller in both modes.
-        self.chatClient = check new ({auth: listenerConfig.auth});
+        self.chatClient = check new ({auth: config.auth});
 
         // Build the Pub/Sub HTTP client. Assigned final here; it is always
         // created regardless of mode so the field has a stable value from init.
         // In HTTP mode it is present but never used for subscription management.
         // normalizeServiceAccountAuth() does file I/O so it must run here in
         // the non-isolated init(), not in the isolated stop methods.
-        self.pubSubClient = check createPubSubClient(listenerConfig);
+        self.pubSubClient = check createPubSubClient(config);
 
         self.dispatcherService = new DispatcherService("", self.chatClient);
     }
@@ -253,37 +244,35 @@ isolated function validateService(GenericServiceType serviceObj) returns error? 
 # The client is created for all modes (both Pub/Sub and HTTP) so the field
 # always has a stable value. In HTTP mode the client is present but unused.
 #
-# + listenerConfig - The listener configuration with auth credentials
+# + config - The listener configuration with auth credentials
 # + return - A configured `http:Client` for the Pub/Sub API, or an error
-function createPubSubClient(ListenerConfig listenerConfig) returns http:Client|error {
-    if listenerConfig.auth is OAuth2Config {
-        OAuth2Config oauthConfig = <OAuth2Config>listenerConfig.auth;
+function createPubSubClient(ListenerConfig config) returns http:Client|error {
+    if config.auth is OAuth2Config {
+        OAuth2Config oauthConfig = <OAuth2Config>config.auth;
         return new (PUBSUB_BASE_URL, {
             auth: <http:OAuth2RefreshTokenGrantConfig>{
                 clientId: oauthConfig.clientId,
                 clientSecret: oauthConfig.clientSecret,
                 refreshUrl: oauthConfig.refreshUrl,
                 refreshToken: oauthConfig.refreshToken
-            },
-            secureSocket: listenerConfig.secureSocketConfig
+            }
         });
     }
 
-    if listenerConfig.auth is http:BearerTokenConfig {
+    if config.auth is http:BearerTokenConfig {
         // Pre-obtained access token — passed straight through.
         // Note: Google access tokens expire after ~1 hour. If the listener
         // runs longer, the delete-subscription call on gracefulStop() may
         // fail and the subscription will be orphaned.
         return new (PUBSUB_BASE_URL, {
-            auth: <http:BearerTokenConfig>listenerConfig.auth,
-            secureSocket: listenerConfig.secureSocketConfig
+            auth: <http:BearerTokenConfig>config.auth
         });
     }
 
     // Service account auth — use JWT Bearer Grant (RFC 7523) to exchange
     // a signed JWT assertion for an OAuth2 access token.
     ServiceAccountConfig saConfig = check normalizeServiceAccountAuth(
-            <ServiceAccountAuthConfig>listenerConfig.auth);
+            <ServiceAccountAuthConfig>config.auth);
 
     jwt:IssuerConfig assertionConfig = {
         issuer: saConfig.issuer,
@@ -299,7 +288,6 @@ function createPubSubClient(ListenerConfig listenerConfig) returns http:Client|e
         auth: <http:OAuth2JwtBearerGrantConfig>{
             tokenUrl: GOOGLE_OAUTH2_TOKEN_URL,
             assertion: assertion
-        },
-        secureSocket: listenerConfig.secureSocketConfig
+        }
     });
 }

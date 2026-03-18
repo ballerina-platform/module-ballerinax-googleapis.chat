@@ -51,14 +51,14 @@ import ballerina/http;
 #
 # + auth - Authentication for the Chat API client and (in Pub/Sub mode) for
 #           Pub/Sub subscription management (service account, OAuth2, or bearer token)
-# + secureSocketConfig - Optional SSL/TLS configuration for the HTTP listener
+# + httpListenerConfig - Optional inbound HTTP listener settings
 @display {label: "Listener Config"}
-public type ListenerConfig record {
+public type ListenerConfig record {|
     @display {label: "Auth Config"}
     ServiceAccountAuthConfig|OAuth2Config|http:BearerTokenConfig auth;
-    @display {label: "SSL Config"}
-    http:ClientSecureSocket secureSocketConfig?;
-};
+    @display {label: "HTTP Listener Config"}
+    http:ListenerConfiguration httpListenerConfig = {};
+|};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Service Annotation
