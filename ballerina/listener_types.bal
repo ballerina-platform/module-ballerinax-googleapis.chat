@@ -194,7 +194,7 @@ public type MessageEvent record {
 # relevant to your Chat app.
 #
 # Each handler receives the event and an event-specific Caller for responding.
-# The Caller's `respond()` method sends a synchronous HTTP response back to
+# The Caller's respond() method sends a synchronous HTTP response back to
 # Google Chat. Additional async Chat API operations (sendMessage, updateMessage,
 # etc.) are available on callers that support them.
 #

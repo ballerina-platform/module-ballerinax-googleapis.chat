@@ -264,11 +264,18 @@ public isolated client class CardClickedCaller {
     }
 
     # Sends a message to the space asynchronously via the Chat API.
+    #
+    # + message - The message payload to send
+    # + return - The created message or an error
     remote isolated function sendMessage(CreateMessageRequest message) returns Message|error {
         return self.chatClient->/spaces/[self.spaceId]/messages.post(message);
     }
 
     # Updates a bot-accessible message in the same space.
+    #
+    # + message - The message to update (must have `name` set)
+    # + queries - Query parameters such as `updateMask` and `allowMissing`
+    # + return - The updated message or an error
     remote isolated function updateMessage(Message message, *UpdateMessageQueries queries) returns Message|error {
         string resolvedMessageId = check resolveMessageId(message.name);
         UpdateMessageRequest request = {
@@ -291,12 +298,17 @@ public isolated client class CardClickedCaller {
     }
 
     # Deletes a bot-accessible message in the same space.
+    #
+    # + message - The message to delete (must have `name` set)
+    # + return - An error if the operation fails
     remote isolated function deleteMessage(Message message) returns error? {
         string resolvedMessageId = check resolveMessageId(message.name);
         return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].delete();
     }
 
     # Returns details about the space where the event occurred.
+    #
+    # + return - The space details or an error
     remote isolated function getSpace() returns Space|error {
         return self.chatClient->/spaces/[self.spaceId];
     }
@@ -411,18 +423,27 @@ public isolated client class WidgetUpdatedCaller {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 # Creates a new ResponseFuture Java object.
+#
+# + return - A handle to the new `CompletableFuture`-backed ResponseFuture
 isolated function createResponseFuture() returns handle = @java:Method {
     'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"
 } external;
 
 # Signals the ResponseFuture with the response payload, unblocking the
 # waiting resource function.
+#
+# + responseFuture - The handle to the ResponseFuture to complete
+# + payload - The JSON response payload to deliver
 isolated function completeFuture(handle responseFuture, json payload) = @java:Method {
     'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"
 } external;
 
 # Blocks until the ResponseFuture is completed or the timeout expires.
-# Returns the response payload as json, or () if timed out.
+# Returns the response payload as `json`, or `()` if timed out.
+#
+# + responseFuture - The handle to the ResponseFuture to wait on
+# + timeoutSeconds - Maximum number of seconds to wait before returning `()`
+# + return - The JSON payload set by `completeFuture`, or `()` on timeout
 isolated function waitForResponse(handle responseFuture, int timeoutSeconds) returns json = @java:Method {
     name: "waitForResponseStatic",
     'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"

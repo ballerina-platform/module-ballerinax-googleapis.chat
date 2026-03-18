@@ -18,7 +18,7 @@ import ballerina/http;
 import ballerina/jballerina.java;
 import ballerina/log;
 
-# Maximum time (in seconds) to wait for a handler to call `respond()` before
+# Maximum time (in seconds) to wait for a handler to call respond() before
 # returning an empty response to Google Chat. Google Chat has a 30s timeout
 # for interaction events, so we use 28s to leave a small margin.
 const int RESPONSE_TIMEOUT_SECONDS = 28;
@@ -31,9 +31,9 @@ const int RESPONSE_TIMEOUT_SECONDS = 28;
 # token that is verified before the event is processed.
 #
 # The handler is dispatched on a virtual thread (fire-and-forget). A
-# `ResponseFuture` bridges the handler's `respond()` call with the resource
+# ResponseFuture bridges the handler's respond() call with the resource
 # function's return value. The resource function blocks on the future until
-# the handler calls `respond()` or a timeout expires, then returns the
+# the handler calls respond() or a timeout expires, then returns the
 # response payload directly (the HTTP framework sends it as the response body).
 service class DispatcherService {
     *http:Service;
@@ -75,11 +75,11 @@ service class DispatcherService {
     # Handles direct HTTP POST requests from Google Chat.
     #
     # Verifies the bearer token, parses the event, dispatches to the handler
-    # on a virtual thread, and waits for the handler to call `respond()`.
+    # on a virtual thread, and waits for the handler to call respond().
     # Returns the response payload directly as `json` — the HTTP framework
     # sends it as the response body.
     #
-    # If the handler does not call `respond()` within the timeout, an empty
+    # If the handler does not call respond() within the timeout, an empty
     # JSON object `{}` is returned as a fallback.
     #
     # + request - The incoming HTTP request from Google Chat
@@ -150,11 +150,11 @@ service class DispatcherService {
     // ─────────────────────────────────────────────────────────────────────────
 
     # Dispatches a Chat event to the appropriate remote function on the
-    # registered ChatService. Creates a `ResponseFuture`, constructs the
+    # registered ChatService. Creates a ResponseFuture, constructs the
     # event-specific Caller, fires the handler on a virtual thread, and
-    # waits for the handler to call `respond()` (or until timeout).
+    # waits for the handler to call respond() (or until timeout).
     #
-    # Returns the response payload set by `respond()`, or `{}` if no
+    # Returns the response payload set by respond(), or `{}` if no
     # response was provided (handler not found, timeout, etc.).
     #
     # + chatEvent - The parsed Chat interaction event
@@ -211,6 +211,12 @@ service class DispatcherService {
 
     # Dispatches events that use `MessageCaller` (onMessage, onAddedToSpace, onAppCommand).
     # Creates a ResponseFuture and MessageCaller, fires the handler, waits for response.
+    #
+    # + chatEvent - The parsed Chat interaction event
+    # + eventFunction - The remote function name to invoke on the service
+    # + spaceId - The space ID extracted from the event, used by the Chat API client
+    # + genericService - The registered ChatService instance
+    # + return - The JSON response payload
     private isolated function dispatchWithMessageCaller(ChatEvent chatEvent,
             string eventFunction, string spaceId,
             GenericServiceType genericService) returns json {
@@ -224,6 +230,11 @@ service class DispatcherService {
     }
 
     # Dispatches an event with a CardClickedCaller.
+    #
+    # + chatEvent - The parsed Chat interaction event
+    # + spaceId - The space ID extracted from the event, used by the Chat API client
+    # + genericService - The registered ChatService instance
+    # + return - The JSON response payload
     private isolated function dispatchWithCardClickedCaller(ChatEvent chatEvent,
             string spaceId, GenericServiceType genericService) returns json {
         if !nativeHasRemoteFunction(genericService, "onCardClicked") {
@@ -236,6 +247,11 @@ service class DispatcherService {
     }
 
     # Dispatches an event with a simple caller (AppHomeCaller, SubmitFormCaller, WidgetUpdatedCaller).
+    #
+    # + chatEvent - The parsed Chat interaction event
+    # + eventFunction - The remote function name to invoke on the service
+    # + genericService - The registered ChatService instance
+    # + return - The JSON response payload
     private isolated function dispatchWithSimpleCaller(ChatEvent chatEvent,
             string eventFunction, GenericServiceType genericService) returns json {
         if !nativeHasRemoteFunction(genericService, eventFunction) {
@@ -254,8 +270,11 @@ service class DispatcherService {
         return self.awaitResponse(responseFuture);
     }
 
-    # Waits for the handler to call `respond()` via the ResponseFuture, or
+    # Waits for the handler to call respond() via the ResponseFuture, or
     # returns `{}` if the timeout expires.
+    #
+    # + responseFuture - The handle to the ResponseFuture to wait on
+    # + return - The JSON payload from respond(), or `{}` on timeout
     private isolated function awaitResponse(handle responseFuture) returns json {
         json result = waitForResponse(responseFuture, RESPONSE_TIMEOUT_SECONDS);
         // If null (timeout or handler didn't call respond), return empty JSON.
@@ -272,6 +291,11 @@ service class DispatcherService {
 # remote function on the ChatService. The Java implementation inspects the
 # function signature, injects the ChatEvent and the pre-built Caller into
 # the args, and executes the function on a virtual thread (fire-and-forget).
+#
+# + chatEvent - The parsed Chat interaction event to pass to the handler
+# + eventFunction - The name of the remote function to invoke
+# + callerObj - The event-specific Caller object to inject, or `()` for no caller
+# + serviceObj - The registered ChatService instance
 isolated function nativeInvokeRemoteFunction(ChatEvent chatEvent, string eventFunction,
         object {}? callerObj, GenericServiceType serviceObj) = @java:Method {
     name: "invokeRemoteFunction",
@@ -279,6 +303,10 @@ isolated function nativeInvokeRemoteFunction(ChatEvent chatEvent, string eventFu
 } external;
 
 # Native helper that checks whether a remote function exists on the service.
+#
+# + serviceObj - The registered ChatService instance
+# + eventFunction - The name of the remote function to check for
+# + return - `true` if the function exists on the service, `false` otherwise
 isolated function nativeHasRemoteFunction(GenericServiceType serviceObj,
         string eventFunction) returns boolean = @java:Method {
     name: "hasRemoteFunction",
