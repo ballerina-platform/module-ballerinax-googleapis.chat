@@ -18,11 +18,6 @@ import ballerina/http;
 import ballerina/jballerina.java;
 import ballerina/log;
 
-# Maximum time (in seconds) to wait for a handler to call respond() before
-# returning an empty response to Google Chat. Google Chat has a 30s timeout
-# for interaction events, so we use 28s to leave a small margin.
-const int RESPONSE_TIMEOUT_SECONDS = 28;
-
 # Internal HTTP service that receives Google Chat interaction events and
 # dispatches them to the registered `ChatService` implementation.
 #

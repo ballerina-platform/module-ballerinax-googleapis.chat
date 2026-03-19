@@ -114,3 +114,9 @@ const string ERR_SERVICE_ATTACH = "Service has already been attached.";
 const string ERR_SERVICE_DETACH = "Cannot detach service. Service has not been attached.";
 const string ERR_BEARER_TOKEN_MISSING = "Missing or malformed Authorization header. Expected 'Bearer <token>'.";
 const string ERR_BEARER_TOKEN_INVALID = "Bearer token verification failed: token was not issued by Google Chat.";
+
+// ── Other Constants ─────────────────────────────────────────────────────────────
+# Maximum time (in seconds) to wait for a handler to call respond() before
+# returning an empty response to Google Chat. Google Chat has a 30s timeout
+# for interaction events, so we use 28s to leave a small margin.
+const int RESPONSE_TIMEOUT_SECONDS = 28;
