@@ -142,7 +142,7 @@ isolated function validateGoogleIdToken(string token, string expectedAudience,
 #
 # The token must:
 # - Be signed by `chat@system.gserviceaccount.com` (validated via the Chat
-#   service account's published JWKS)
+# service account's published JWKS)
 # - Have `issuer` == `chat@system.gserviceaccount.com`
 # - Have `audience` matching the configured GCP project number
 #

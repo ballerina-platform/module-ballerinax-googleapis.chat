@@ -16,24 +16,21 @@
 
 package io.ballerina.lib.googleapis.chat;
 
-import io.ballerina.runtime.api.utils.StringUtils;
-import io.ballerina.runtime.api.values.BString;
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * A synchronization primitive for bridging asynchronous handler execution with
- * the synchronous HTTP response requirement.
+ * A synchronization primitive for bridging asynchronous handler execution with the synchronous HTTP response
+ * requirement.
  * <p>
- * The HTTP resource function creates a {@code ResponseFuture} and passes it (via the Caller)
- * to the handler running on a virtual thread. When the handler calls {@code respond()},
- * the Caller sets the response payload on this future via {@code complete()}. The resource
- * function blocks on {@code waitForResponse()} until the future completes or a timeout expires.
+ * The HTTP resource function creates a {@code ResponseFuture} and passes it (via the Caller) to the handler running on
+ * a virtual thread. When the handler calls {@code respond()}, the Caller sets the response payload on this future via
+ * {@code complete()}. The resource function blocks on {@code waitForResponse()} until the future completes or a timeout
+ * expires.
  * <p>
- * This approach allows the handler to continue running after calling {@code respond()} —
- * only the response payload is synchronized, not the handler's full lifecycle.
+ * This approach allows the handler to continue running after calling {@code respond()} — only the response payload is
+ * synchronized, not the handler's full lifecycle.
  *
  * @since 0.1.0
  */
@@ -42,8 +39,8 @@ public final class ResponseFuture {
     private final CompletableFuture<Object> future = new CompletableFuture<>();
 
     /**
-     * Called by the Caller's {@code respond()} method to set the response payload.
-     * This unblocks the resource function waiting on {@code waitForResponse()}.
+     * Called by the Caller's {@code respond()} method to set the response payload. This unblocks the resource function
+     * waiting on {@code waitForResponse()}.
      *
      * @param payload the JSON response payload (Ballerina json value)
      */
@@ -52,9 +49,8 @@ public final class ResponseFuture {
     }
 
     /**
-     * Called by the dispatcher's resource function to wait for the handler to call
-     * {@code respond()}. Blocks the calling strand until the response is available
-     * or the timeout expires.
+     * Called by the dispatcher's resource function to wait for the handler to call {@code respond()}. Blocks the
+     * calling strand until the response is available or the timeout expires.
      *
      * @param timeoutSeconds the maximum time to wait in seconds
      * @return the response payload, or {@code null} if the timeout expired
@@ -81,8 +77,8 @@ public final class ResponseFuture {
     // ── Static methods callable from Ballerina via native interop ────────────
 
     /**
-     * Creates a new {@code ResponseFuture} instance.
-     * Called from Ballerina: {@code ResponseFuture future = createResponseFuture();}
+     * Creates a new {@code ResponseFuture} instance. Called from Ballerina:
+     * {@code ResponseFuture future = createResponseFuture();}
      *
      * @return a new ResponseFuture handle
      */
@@ -91,8 +87,8 @@ public final class ResponseFuture {
     }
 
     /**
-     * Sets the response payload on the given future, unblocking the waiting resource function.
-     * Called from the Caller's {@code respond()} method in Ballerina.
+     * Sets the response payload on the given future, unblocking the waiting resource function. Called from the Caller's
+     * {@code respond()} method in Ballerina.
      *
      * @param future  the ResponseFuture handle
      * @param payload the JSON response payload
@@ -102,8 +98,8 @@ public final class ResponseFuture {
     }
 
     /**
-     * Blocks until the response is available or the timeout expires.
-     * Called from the dispatcher's resource function in Ballerina.
+     * Blocks until the response is available or the timeout expires. Called from the dispatcher's resource function in
+     * Ballerina.
      *
      * @param future         the ResponseFuture handle
      * @param timeoutSeconds the maximum time to wait

@@ -45,8 +45,8 @@ import java.util.Set;
  * Native dispatcher for Google Chat events. Inspects the remote function signature on the user's {@code ChatService}
  * and injects the {@code ChatEvent} record and a pre-built event-specific Caller into the arguments.
  * <p>
- * The handler is executed on a virtual thread (fire-and-forget). The Caller holds an {@code http:Caller}
- * reference so the user's handler can write the HTTP response immediately via {@code respond()}.
+ * The handler is executed on a virtual thread (fire-and-forget). The Caller holds an {@code http:Caller} reference so
+ * the user's handler can write the HTTP response immediately via {@code respond()}.
  *
  * @since 0.2.0
  */
@@ -95,9 +95,8 @@ public final class ChatEventDispatcher {
     }
 
     /**
-     * Invokes a remote function on the given service object. The ChatEvent and the pre-built Caller
-     * are injected into the arguments based on the function signature. The handler is executed on a
-     * virtual thread (fire-and-forget).
+     * Invokes a remote function on the given service object. The ChatEvent and the pre-built Caller are injected into
+     * the arguments based on the function signature. The handler is executed on a virtual thread (fire-and-forget).
      *
      * @param env           the Ballerina runtime environment
      * @param chatEvent     the ChatEvent record (BMap)
@@ -107,7 +106,7 @@ public final class ChatEventDispatcher {
      * @return {@code null} always (fire-and-forget)
      */
     public static void invokeRemoteFunction(Environment env, BMap<BString, Object> chatEvent,
-                                           BString eventFunction, Object callerObj, BObject serviceObj) {
+                                            BString eventFunction, Object callerObj, BObject serviceObj) {
         Runtime runtime = env.getRuntime();
         String functionName = eventFunction.getValue();
 
@@ -132,8 +131,8 @@ public final class ChatEventDispatcher {
                 }
             } else if (referredType.getTag() == TypeTags.RECORD_TYPE_TAG &&
                     (CHAT_EVENT_RECORD.equals(referredType.getName()) ||
-                     MESSAGE_EVENT_RECORD.equals(referredType.getName()) ||
-                     FUNC_ON_MESSAGE.equals(functionName))) {
+                            MESSAGE_EVENT_RECORD.equals(referredType.getName()) ||
+                            FUNC_ON_MESSAGE.equals(functionName))) {
                 args[i] = chatEvent;
             } else {
                 logInvalidSignature(functionName, "unsupported parameter type '" + referredType.getName() + "'");
@@ -164,9 +163,8 @@ public final class ChatEventDispatcher {
     }
 
     /**
-     * Checks whether a remote function exists on the given service object.
-     * Called from Ballerina to determine whether to create a Caller and dispatch,
-     * or to respond with an empty body immediately.
+     * Checks whether a remote function exists on the given service object. Called from Ballerina to determine whether
+     * to create a Caller and dispatch, or to respond with an empty body immediately.
      *
      * @param serviceObj    the user's ChatService object
      * @param eventFunction the name of the remote function to check

@@ -485,8 +485,8 @@ public type Attachment record {
 # Reference to the data of a Chat attachment.
 #
 # + resourceName - Opaque media resource name used with `Client.downloadMedia()` to
-#                  download the attachment bytes. Pass this value exactly as returned
-#                  by Google Chat without parsing or reconstructing it
+# download the attachment bytes. Pass this value exactly as returned
+# by Google Chat without parsing or reconstructing it
 # + attachmentUploadToken - Opaque token containing a reference to an uploaded attachment
 public type AttachmentDataRef record {
     string resourceName?;
@@ -1586,7 +1586,7 @@ public type ListSpacesResponse record {
 # + spaces - Page of spaces matching the search query
 # + nextPageToken - Token to retrieve the next page. Empty if no more pages
 # + totalSize - Total number of spaces matching the query across all pages.
-#               An estimate if the total exceeds 10,000
+# An estimate if the total exceeds 10,000
 public type SearchSpacesResponse record {
     Space[] spaces?;
     string nextPageToken?;
