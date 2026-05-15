@@ -91,6 +91,21 @@ publishing {
     }
 }
 
+task publishToLocalCentral {
+    dependsOn build
+    doLast {
+        def balaDir = file("${project.projectDir}/build/bal_build_target/bala")
+        def balaFile = fileTree(balaDir).filter { it.name.endsWith('.bala') }.singleFile
+        project.exec {
+            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                commandLine 'cmd', '/c', "bal push --repository=local ${balaFile}"
+            } else {
+                commandLine 'sh', '-c', "bal push --repository=local ${balaFile}"
+            }
+        }
+    }
+}
+
 clean {
     delete 'build'
 }
