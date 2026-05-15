@@ -78,27 +78,25 @@ service class DispatcherService {
     # JSON object `{}` is returned as a fallback.
     #
     # + request - The incoming HTTP request from Google Chat
-    # + return - The JSON response payload, or an error
-    resource function post .(http:Request request) returns json|error {
+    # + return - The response record, or an error
+    resource function post .(http:Request request) returns map<anydata>|error {
         HttpConfig? cfg = self.httpConfig;
         if cfg is () {
             log:printWarn("Received request but listener is not configured");
-            return <json>{};
+            return {};
         }
 
         // Verify the bearer token before processing the event
         string|AuthenticationError bearerToken = extractBearerToken(request);
         if bearerToken is AuthenticationError {
             log:printWarn(WARN_HTTP_AUTH_FAILED, 'error = bearerToken);
-            // Return 401 via error — the framework will handle it.
-            // For now, return an empty body (Google Chat doesn't inspect status codes).
-            return <json>{};
+            return {};
         }
 
         true|AuthenticationError verified = verifyChatBearerToken(bearerToken, cfg);
         if verified is AuthenticationError {
             log:printWarn(WARN_HTTP_AUTH_FAILED, 'error = verified);
-            return <json>{};
+            return {};
         }
 
         // Parse the raw Chat event JSON directly
@@ -153,11 +151,11 @@ service class DispatcherService {
     # response was provided (handler not found, timeout, etc.).
     #
     # + chatEvent - The parsed Chat interaction event
-    # + return - The JSON response payload
-    isolated function dispatch(ChatEvent chatEvent) returns json {
+    # + return - The response record
+    isolated function dispatch(ChatEvent chatEvent) returns map<anydata> {
         GenericServiceType? genericService = self.services["ChatService"];
         if genericService is () {
-            return <json>{};
+            return {};
         }
 
         string spaceId = "";
@@ -180,7 +178,7 @@ service class DispatcherService {
                 // No caller needed — fire handler and return empty immediately.
                 // The handler cannot send a response since the app is removed.
                 nativeInvokeRemoteFunction(chatEvent, "onRemovedFromSpace", (), genericService);
-                return <json>{};
+                return {};
             }
             CARD_CLICKED => {
                 return self.dispatchWithCardClickedCaller(chatEvent, spaceId, genericService);
@@ -199,7 +197,7 @@ service class DispatcherService {
             }
             _ => {
                 log:printWarn(WARN_UNKNOWN_EVENT_TYPE + chatEvent.'type.toString());
-                return <json>{};
+                return {};
             }
         }
     }
@@ -211,12 +209,12 @@ service class DispatcherService {
     # + eventFunction - The remote function name to invoke on the service
     # + spaceId - The space ID extracted from the event, used by the Chat API client
     # + genericService - The registered ChatService instance
-    # + return - The JSON response payload
+    # + return - The response record
     private isolated function dispatchWithMessageCaller(ChatEvent chatEvent,
             string eventFunction, string spaceId,
-            GenericServiceType genericService) returns json {
+            GenericServiceType genericService) returns map<anydata> {
         if !nativeHasRemoteFunction(genericService, eventFunction) {
-            return <json>{};
+            return {};
         }
         ResponseFuture responseFuture = new;
         MessageCaller caller = new (self.chatClient, spaceId, responseFuture);
@@ -229,11 +227,11 @@ service class DispatcherService {
     # + chatEvent - The parsed Chat interaction event
     # + spaceId - The space ID extracted from the event, used by the Chat API client
     # + genericService - The registered ChatService instance
-    # + return - The JSON response payload
+    # + return - The response record
     private isolated function dispatchWithCardClickedCaller(ChatEvent chatEvent,
-            string spaceId, GenericServiceType genericService) returns json {
+            string spaceId, GenericServiceType genericService) returns map<anydata> {
         if !nativeHasRemoteFunction(genericService, "onCardClicked") {
-            return <json>{};
+            return {};
         }
         ResponseFuture responseFuture = new;
         CardClickedCaller caller = new (self.chatClient, spaceId, responseFuture);
@@ -246,11 +244,11 @@ service class DispatcherService {
     # + chatEvent - The parsed Chat interaction event
     # + eventFunction - The remote function name to invoke on the service
     # + genericService - The registered ChatService instance
-    # + return - The JSON response payload
+    # + return - The response record
     private isolated function dispatchWithSimpleCaller(ChatEvent chatEvent,
-            string eventFunction, GenericServiceType genericService) returns json {
+            string eventFunction, GenericServiceType genericService) returns map<anydata> {
         if !nativeHasRemoteFunction(genericService, eventFunction) {
-            return <json>{};
+            return {};
         }
         ResponseFuture responseFuture = new;
         object {} caller;
@@ -269,16 +267,10 @@ service class DispatcherService {
     # returns `{}` if the timeout expires.
     #
     # + responseFuture - The ResponseFuture to wait on
-    # + return - The JSON payload from respond(), or `{}` on timeout
-    private isolated function awaitResponse(ResponseFuture responseFuture) returns json {
-        json result = responseFuture.waitFor(RESPONSE_TIMEOUT_SECONDS);
-        // If null (timeout or handler didn't call respond), return empty JSON.
-        // The null from Java maps to () in Ballerina, which is a valid json value
-        // but we want to return {} to Google Chat instead.
-        if result == () {
-            return <json>{};
-        }
-        return result;
+    # + return - The response record from respond(), or `{}` on timeout
+    private isolated function awaitResponse(ResponseFuture responseFuture) returns map<anydata> {
+        map<anydata>? result = responseFuture.waitFor(RESPONSE_TIMEOUT_SECONDS);
+        return result ?: {};
     }
 }
 

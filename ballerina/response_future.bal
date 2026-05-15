@@ -34,16 +34,16 @@ isolated class ResponseFuture {
 
     # Signals the future with the response payload, unblocking the dispatcher.
     #
-    # + payload - The JSON response payload to deliver
-    isolated function complete(json payload) {
+    # + payload - The response record to deliver
+    isolated function complete(map<anydata> payload) {
         jCompleteFuture(self.jFuture, payload);
     }
 
     # Blocks until `complete` is called or the timeout expires.
     #
     # + timeoutSeconds - Maximum seconds to wait before returning `()`
-    # + return - The JSON payload set by `complete`, or `()` on timeout
-    isolated function waitFor(int timeoutSeconds) returns json {
+    # + return - The response record set by `complete`, or `()` on timeout
+    isolated function waitFor(int timeoutSeconds) returns map<anydata>? {
         return jWaitForResponse(self.jFuture, timeoutSeconds);
     }
 }
@@ -53,12 +53,12 @@ isolated function jCreateResponseFuture() returns handle = @java:Method {
     'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"
 } external;
 
-isolated function jCompleteFuture(handle jFuture, json payload) = @java:Method {
+isolated function jCompleteFuture(handle jFuture, map<anydata> payload) = @java:Method {
     name: "completeFuture",
     'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"
 } external;
 
-isolated function jWaitForResponse(handle jFuture, int timeoutSeconds) returns json = @java:Method {
+isolated function jWaitForResponse(handle jFuture, int timeoutSeconds) returns map<anydata>? = @java:Method {
     name: "waitForResponseStatic",
     'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"
 } external;

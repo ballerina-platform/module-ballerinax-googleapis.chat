@@ -66,17 +66,16 @@ public isolated client class MessageCaller {
     # The `Message` record can include `text`, `cardsV2`, `actionResponse`
     # (for dialogs, card updates, link previews), and `accessoryWidgets`.
     #
-    # + response - The message to send as the synchronous response
+    # + response - The message to send as the synchronous response.
     # + return - An error if respond has already been called
-    remote isolated function respond(Message response) returns error? {
+    remote isolated function respond(Message response = {}) returns error? {
         lock {
             if self.responded {
                 return error DispatchError("respond() has already been called for this event");
             }
             self.responded = true;
         }
-        json payload = response.toJson();
-        self.responseFuture.complete(payload);
+        self.responseFuture.complete(response);
     }
 
     # Sends a message to the space asynchronously via the Chat API.
@@ -165,9 +164,9 @@ public isolated client class AppHomeCaller {
     # The `Card` is automatically wrapped in the required response structure:
     # `{ action: { navigations: [{ pushCard: <card> }] } }`
     #
-    # + card - The card to display in the app home tab
+    # + card - The card to display in the app home tab.
     # + return - An error if respond has already been called
-    remote isolated function respond(Card card) returns error? {
+    remote isolated function respond(Card card = {}) returns error? {
         lock {
             if self.responded {
                 return error DispatchError("respond() has already been called for this event");
@@ -179,8 +178,7 @@ public isolated client class AppHomeCaller {
                 navigations: [{pushCard: card}]
             }
         };
-        json payload = appHomeResponse.toJson();
-        self.responseFuture.complete(payload);
+        self.responseFuture.complete(appHomeResponse);
     }
 }
 
@@ -235,18 +233,17 @@ public isolated client class CardClickedCaller {
     # link preview updates), or a `Card` for interactions originating from the
     # app home (auto-wrapped in RenderActions with `updateCard` navigation).
     #
-    # + response - The response to send
+    # + response - The response to send.
     # + return - An error if respond has already been called
-    remote isolated function respond(Message|Card response) returns error? {
+    remote isolated function respond(Message|Card response = <Message>{}) returns error? {
         lock {
             if self.responded {
                 return error DispatchError("respond() has already been called for this event");
             }
             self.responded = true;
         }
-        json payload;
         if response is Message {
-            payload = response.toJson();
+            self.responseFuture.complete(response);
         } else {
             Card card = <Card>response;
             RenderActionsResponse renderResponse = {
@@ -256,9 +253,8 @@ public isolated client class CardClickedCaller {
                     }
                 }
             };
-            payload = renderResponse.toJson();
+            self.responseFuture.complete(renderResponse);
         }
-        self.responseFuture.complete(payload);
     }
 
     # Sends a message to the space asynchronously via the Chat API.
@@ -347,9 +343,9 @@ public isolated client class SubmitFormCaller {
     # The `Card` is automatically wrapped in the required response structure:
     # `{ renderActions: { action: { navigations: [{ updateCard: <card> }] } } }`
     #
-    # + card - The updated card to display in the app home tab
+    # + card - The updated card to display in the app home tab.
     # + return - An error if respond has already been called
-    remote isolated function respond(Card card) returns error? {
+    remote isolated function respond(Card card = {}) returns error? {
         lock {
             if self.responded {
                 return error DispatchError("respond() has already been called for this event");
@@ -363,8 +359,7 @@ public isolated client class SubmitFormCaller {
                 }
             }
         };
-        json payload = renderResponse.toJson();
-        self.responseFuture.complete(payload);
+        self.responseFuture.complete(renderResponse);
     }
 
 }
@@ -402,17 +397,16 @@ public isolated client class WidgetUpdatedCaller {
     # Sets the synchronous response with widget update results.
     #
     # + response - The message containing the widget update (typically with
-    # `actionResponse.type = UPDATE_WIDGET`)
+    # `actionResponse.type = UPDATE_WIDGET`).
     # + return - An error if respond has already been called
-    remote isolated function respond(Message response) returns error? {
+    remote isolated function respond(Message response = {}) returns error? {
         lock {
             if self.responded {
                 return error DispatchError("respond() has already been called for this event");
             }
             self.responded = true;
         }
-        json payload = response.toJson();
-        self.responseFuture.complete(payload);
+        self.responseFuture.complete(response);
     }
 }
 

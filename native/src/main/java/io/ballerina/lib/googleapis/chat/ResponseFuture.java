@@ -16,9 +16,11 @@
 
 package io.ballerina.lib.googleapis.chat;
 
+import io.ballerina.runtime.api.values.BMap;
+import io.ballerina.runtime.api.values.BString;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * A synchronization primitive for bridging asynchronous handler execution with the synchronous HTTP response
@@ -36,45 +38,7 @@ import java.util.concurrent.TimeoutException;
  */
 public final class ResponseFuture {
 
-    private final CompletableFuture<Object> future = new CompletableFuture<>();
-
-    /**
-     * Called by the Caller's {@code respond()} method to set the response payload. This unblocks the resource function
-     * waiting on {@code waitForResponse()}.
-     *
-     * @param payload the JSON response payload (Ballerina json value)
-     */
-    public void complete(Object payload) {
-        future.complete(payload);
-    }
-
-    /**
-     * Called by the dispatcher's resource function to wait for the handler to call {@code respond()}. Blocks the
-     * calling strand until the response is available or the timeout expires.
-     *
-     * @param timeoutSeconds the maximum time to wait in seconds
-     * @return the response payload, or {@code null} if the timeout expired
-     */
-    public Object waitForResponse(long timeoutSeconds) {
-        try {
-            return future.get(timeoutSeconds, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            return null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    /**
-     * Checks whether the response has already been set.
-     *
-     * @return {@code true} if {@code complete()} has been called
-     */
-    public boolean isDone() {
-        return future.isDone();
-    }
-
-    // ── Static methods callable from Ballerina via native interop ────────────
+    private final CompletableFuture<BMap<BString, Object>> future = new CompletableFuture<>();
 
     /**
      * Creates a new {@code ResponseFuture} instance. Called from Ballerina:
@@ -93,7 +57,7 @@ public final class ResponseFuture {
      * @param future  the ResponseFuture handle
      * @param payload the JSON response payload
      */
-    public static void completeFuture(ResponseFuture future, Object payload) {
+    public static void completeFuture(ResponseFuture future, BMap<BString, Object> payload) {
         future.complete(payload);
     }
 
@@ -105,7 +69,43 @@ public final class ResponseFuture {
      * @param timeoutSeconds the maximum time to wait
      * @return the response payload, or {@code null} if timed out
      */
-    public static Object waitForResponseStatic(ResponseFuture future, long timeoutSeconds) {
+    public static BMap<BString, Object> waitForResponseStatic(ResponseFuture future, long timeoutSeconds) {
         return future.waitForResponse(timeoutSeconds);
+    }
+
+    // ── Static methods callable from Ballerina via native interop ────────────
+
+    /**
+     * Called by the Caller's {@code respond()} method to set the response payload. This unblocks the resource function
+     * waiting on {@code waitForResponse()}.
+     *
+     * @param payload the response record (a Ballerina record represented as a {@code BMap})
+     */
+    public void complete(BMap<BString, Object> payload) {
+        future.complete(payload);
+    }
+
+    /**
+     * Called by the dispatcher's resource function to wait for the handler to call {@code respond()}. Blocks the
+     * calling strand until the response is available or the timeout expires.
+     *
+     * @param timeoutSeconds the maximum time to wait in seconds
+     * @return the response payload, or {@code null} if the timeout expired
+     */
+    public BMap<BString, Object> waitForResponse(long timeoutSeconds) {
+        try {
+            return future.get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Checks whether the response has already been set.
+     *
+     * @return {@code true} if {@code complete()} has been called
+     */
+    public boolean isDone() {
+        return future.isDone();
     }
 }
