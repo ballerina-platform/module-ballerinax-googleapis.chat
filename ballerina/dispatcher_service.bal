@@ -218,7 +218,7 @@ service class DispatcherService {
         if !nativeHasRemoteFunction(genericService, eventFunction) {
             return <json>{};
         }
-        handle responseFuture = createResponseFuture();
+        ResponseFuture responseFuture = new;
         MessageCaller caller = new (self.chatClient, spaceId, responseFuture);
         nativeInvokeRemoteFunction(chatEvent, eventFunction, caller, genericService);
         return self.awaitResponse(responseFuture);
@@ -235,7 +235,7 @@ service class DispatcherService {
         if !nativeHasRemoteFunction(genericService, "onCardClicked") {
             return <json>{};
         }
-        handle responseFuture = createResponseFuture();
+        ResponseFuture responseFuture = new;
         CardClickedCaller caller = new (self.chatClient, spaceId, responseFuture);
         nativeInvokeRemoteFunction(chatEvent, "onCardClicked", caller, genericService);
         return self.awaitResponse(responseFuture);
@@ -252,7 +252,7 @@ service class DispatcherService {
         if !nativeHasRemoteFunction(genericService, eventFunction) {
             return <json>{};
         }
-        handle responseFuture = createResponseFuture();
+        ResponseFuture responseFuture = new;
         object {} caller;
         if eventFunction == "onWidgetUpdated" {
             caller = new WidgetUpdatedCaller(responseFuture);
@@ -268,10 +268,10 @@ service class DispatcherService {
     # Waits for the handler to call respond() via the ResponseFuture, or
     # returns `{}` if the timeout expires.
     #
-    # + responseFuture - The handle to the ResponseFuture to wait on
+    # + responseFuture - The ResponseFuture to wait on
     # + return - The JSON payload from respond(), or `{}` on timeout
-    private isolated function awaitResponse(handle responseFuture) returns json {
-        json result = waitForResponse(responseFuture, RESPONSE_TIMEOUT_SECONDS);
+    private isolated function awaitResponse(ResponseFuture responseFuture) returns json {
+        json result = responseFuture.waitFor(RESPONSE_TIMEOUT_SECONDS);
         // If null (timeout or handler didn't call respond), return empty JSON.
         // The null from Java maps to () in Ballerina, which is a valid json value
         // but we want to return {} to Google Chat instead.

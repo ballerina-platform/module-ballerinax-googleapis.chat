@@ -14,8 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import ballerina/jballerina.java;
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // MessageCaller — for onMessage, onAddedToSpace, onAppCommand
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -49,11 +47,11 @@ import ballerina/jballerina.java;
 public isolated client class MessageCaller {
     private final Client chatClient;
     private final string spaceId;
-    private final handle responseFuture;
+    private final ResponseFuture responseFuture;
     private boolean responded = false;
 
     # Initializes the MessageCaller. Called internally by the dispatcher.
-    isolated function init(Client chatClient, string spaceId, handle responseFuture) {
+    isolated function init(Client chatClient, string spaceId, ResponseFuture responseFuture) {
         self.chatClient = chatClient;
         self.spaceId = spaceId;
         self.responseFuture = responseFuture;
@@ -78,7 +76,7 @@ public isolated client class MessageCaller {
             self.responded = true;
         }
         json payload = response.toJson();
-        completeFuture(self.responseFuture, payload);
+        self.responseFuture.complete(payload);
     }
 
     # Sends a message to the space asynchronously via the Chat API.
@@ -154,11 +152,11 @@ public isolated client class MessageCaller {
 # ```
 @display {label: "Google Chat App Home Caller"}
 public isolated client class AppHomeCaller {
-    private final handle responseFuture;
+    private final ResponseFuture responseFuture;
     private boolean responded = false;
 
     # Initializes the AppHomeCaller. Called internally by the dispatcher.
-    isolated function init(handle responseFuture) {
+    isolated function init(ResponseFuture responseFuture) {
         self.responseFuture = responseFuture;
     }
 
@@ -182,7 +180,7 @@ public isolated client class AppHomeCaller {
             }
         };
         json payload = appHomeResponse.toJson();
-        completeFuture(self.responseFuture, payload);
+        self.responseFuture.complete(payload);
     }
 }
 
@@ -221,11 +219,11 @@ public isolated client class AppHomeCaller {
 public isolated client class CardClickedCaller {
     private final Client chatClient;
     private final string spaceId;
-    private final handle responseFuture;
+    private final ResponseFuture responseFuture;
     private boolean responded = false;
 
     # Initializes the CardClickedCaller. Called internally by the dispatcher.
-    isolated function init(Client chatClient, string spaceId, handle responseFuture) {
+    isolated function init(Client chatClient, string spaceId, ResponseFuture responseFuture) {
         self.chatClient = chatClient;
         self.spaceId = spaceId;
         self.responseFuture = responseFuture;
@@ -260,7 +258,7 @@ public isolated client class CardClickedCaller {
             };
             payload = renderResponse.toJson();
         }
-        completeFuture(self.responseFuture, payload);
+        self.responseFuture.complete(payload);
     }
 
     # Sends a message to the space asynchronously via the Chat API.
@@ -336,11 +334,11 @@ public isolated client class CardClickedCaller {
 # ```
 @display {label: "Google Chat Submit Form Caller"}
 public isolated client class SubmitFormCaller {
-    private final handle responseFuture;
+    private final ResponseFuture responseFuture;
     private boolean responded = false;
 
     # Initializes the SubmitFormCaller. Called internally by the dispatcher.
-    isolated function init(handle responseFuture) {
+    isolated function init(ResponseFuture responseFuture) {
         self.responseFuture = responseFuture;
     }
 
@@ -366,7 +364,7 @@ public isolated client class SubmitFormCaller {
             }
         };
         json payload = renderResponse.toJson();
-        completeFuture(self.responseFuture, payload);
+        self.responseFuture.complete(payload);
     }
 
 }
@@ -393,11 +391,11 @@ public isolated client class SubmitFormCaller {
 # ```
 @display {label: "Google Chat Widget Updated Caller"}
 public isolated client class WidgetUpdatedCaller {
-    private final handle responseFuture;
+    private final ResponseFuture responseFuture;
     private boolean responded = false;
 
     # Initializes the WidgetUpdatedCaller. Called internally by the dispatcher.
-    isolated function init(handle responseFuture) {
+    isolated function init(ResponseFuture responseFuture) {
         self.responseFuture = responseFuture;
     }
 
@@ -414,40 +412,9 @@ public isolated client class WidgetUpdatedCaller {
             self.responded = true;
         }
         json payload = response.toJson();
-        completeFuture(self.responseFuture, payload);
+        self.responseFuture.complete(payload);
     }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Native Interop for ResponseFuture
-// ═══════════════════════════════════════════════════════════════════════════════
-
-# Creates a new ResponseFuture Java object.
-#
-# + return - A handle to the new `CompletableFuture`-backed ResponseFuture
-isolated function createResponseFuture() returns handle = @java:Method {
-    'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"
-} external;
-
-# Signals the ResponseFuture with the response payload, unblocking the
-# waiting resource function.
-#
-# + responseFuture - The handle to the ResponseFuture to complete
-# + payload - The JSON response payload to deliver
-isolated function completeFuture(handle responseFuture, json payload) = @java:Method {
-    'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"
-} external;
-
-# Blocks until the ResponseFuture is completed or the timeout expires.
-# Returns the response payload as `json`, or `()` if timed out.
-#
-# + responseFuture - The handle to the ResponseFuture to wait on
-# + timeoutSeconds - Maximum number of seconds to wait before returning `()`
-# + return - The JSON payload set by `completeFuture`, or `()` on timeout
-isolated function waitForResponse(handle responseFuture, int timeoutSeconds) returns json = @java:Method {
-    name: "waitForResponseStatic",
-    'class: "io.ballerina.lib.googleapis.chat.ResponseFuture"
-} external;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utility Functions
