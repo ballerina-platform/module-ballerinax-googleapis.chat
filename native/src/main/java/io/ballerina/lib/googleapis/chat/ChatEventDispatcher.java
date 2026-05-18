@@ -20,6 +20,7 @@ import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.Runtime;
 import io.ballerina.runtime.api.concurrent.StrandMetadata;
 import io.ballerina.runtime.api.creators.ErrorCreator;
+import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.MethodType;
 import io.ballerina.runtime.api.types.ObjectType;
 import io.ballerina.runtime.api.types.Parameter;
@@ -53,16 +54,8 @@ import java.util.Set;
 public final class ChatEventDispatcher {
 
     private static final PrintStream ERR_OUT = System.err;
-    private static final String CHAT_EVENT_RECORD = "ChatEvent";
-    private static final String MESSAGE_EVENT_RECORD = "MessageEvent";
     private static final String ORG_NAME = "ballerinax";
     private static final String MODULE_NAME = "googleapis.chat";
-
-    // Event-specific Caller class names
-    private static final Set<String> CALLER_TYPES = Set.of(
-            "MessageCaller", "AppHomeCaller", "CardClickedCaller",
-            "SubmitFormCaller", "WidgetUpdatedCaller"
-    );
 
     // Remote function names
     private static final String FUNC_ON_MESSAGE = "onMessage";
@@ -80,16 +73,49 @@ public final class ChatEventDispatcher {
             FUNC_ON_APP_HOME, FUNC_ON_SUBMIT_FORM
     ));
 
-    // Map of function name to expected caller type
-    private static final Map<String, String> FUNCTION_CALLER_MAP = Map.of(
-            FUNC_ON_MESSAGE, "MessageCaller",
-            FUNC_ON_ADDED_TO_SPACE, "MessageCaller",
-            FUNC_ON_APP_COMMAND, "MessageCaller",
-            FUNC_ON_CARD_CLICKED, "CardClickedCaller",
-            FUNC_ON_APP_HOME, "AppHomeCaller",
-            FUNC_ON_SUBMIT_FORM, "SubmitFormCaller",
-            FUNC_ON_WIDGET_UPDATED, "WidgetUpdatedCaller"
+    // Record types resolve cleanly via an empty record value. Caller object types do not — their inits
+    // take parameters (chatClient, spaceId, responseFuture), so ValueCreator.createObjectValue would
+    // crash at class load. We identify Callers by module + type name
+    private static final Type CHAT_EVENT_TYPE =
+            ValueCreator.createRecordValue(ModuleUtils.getModule(), "ChatEvent").getType();
+    private static final Type MESSAGE_EVENT_TYPE =
+            ValueCreator.createRecordValue(ModuleUtils.getModule(), "MessageEvent").getType();
+
+    private static final String CALLER_MESSAGE = "MessageCaller";
+    private static final String CALLER_APP_HOME = "AppHomeCaller";
+    private static final String CALLER_CARD_CLICKED = "CardClickedCaller";
+    private static final String CALLER_SUBMIT_FORM = "SubmitFormCaller";
+    private static final String CALLER_WIDGET_UPDATED = "WidgetUpdatedCaller";
+
+    private static final Set<String> CALLER_TYPE_NAMES = Set.of(
+            CALLER_MESSAGE, CALLER_APP_HOME, CALLER_CARD_CLICKED, CALLER_SUBMIT_FORM, CALLER_WIDGET_UPDATED
     );
+
+    // Map of function name to expected caller type name
+    private static final Map<String, String> FUNCTION_CALLER_MAP = Map.of(
+            FUNC_ON_MESSAGE, CALLER_MESSAGE,
+            FUNC_ON_ADDED_TO_SPACE, CALLER_MESSAGE,
+            FUNC_ON_APP_COMMAND, CALLER_MESSAGE,
+            FUNC_ON_CARD_CLICKED, CALLER_CARD_CLICKED,
+            FUNC_ON_APP_HOME, CALLER_APP_HOME,
+            FUNC_ON_SUBMIT_FORM, CALLER_SUBMIT_FORM,
+            FUNC_ON_WIDGET_UPDATED, CALLER_WIDGET_UPDATED
+    );
+
+    /**
+     * Returns the simple name of the Caller object type if {@code type} is one of our event-specific Callers declared
+     * in this module, otherwise {@code null}.
+     */
+    private static String matchedCallerName(Type type) {
+        if (type.getTag() != TypeTags.OBJECT_TYPE_TAG) {
+            return null;
+        }
+        if (!ModuleUtils.getModule().equals(type.getPackage())) {
+            return null;
+        }
+        String name = type.getName();
+        return CALLER_TYPE_NAMES.contains(name) ? name : null;
+    }
 
     private ChatEventDispatcher() {
     }
@@ -103,7 +129,6 @@ public final class ChatEventDispatcher {
      * @param eventFunction the name of the remote function to invoke
      * @param callerObj     the pre-built event-specific Caller BObject, or null for no-caller events
      * @param serviceObj    the user's ChatService object
-     * @return {@code null} always (fire-and-forget)
      */
     public static void invokeRemoteFunction(Environment env, BMap<BString, Object> chatEvent,
                                             BString eventFunction, Object callerObj, BObject serviceObj) {
@@ -160,6 +185,9 @@ public final class ChatEventDispatcher {
      */
     public static Object validateService(BObject serviceObj) {
         ServiceType serviceType = (ServiceType) TypeUtils.getReferredType(TypeUtils.getType(serviceObj));
+        if (serviceType.getResourceMethods().length > 0) {
+            return createValidationError("ChatService cannot have resource methods");
+        }
         RemoteMethodType[] remoteMethods = serviceType.getRemoteMethods();
         for (RemoteMethodType remoteMethod : remoteMethods) {
             String methodName = remoteMethod.getName();
@@ -186,29 +214,20 @@ public final class ChatEventDispatcher {
 
         boolean isOnMessage = FUNC_ON_MESSAGE.equals(methodName);
         Type firstType = TypeUtils.getReferredType(parameters[0].type);
-        boolean isValidFirstParam = firstType.getTag() == TypeTags.RECORD_TYPE_TAG &&
-                (isOnMessage || CHAT_EVENT_RECORD.equals(firstType.getName()));
+        boolean isValidFirstParam = TypeUtils.isSameType(CHAT_EVENT_TYPE, firstType) ||
+                (isOnMessage && TypeUtils.isSameType(MESSAGE_EVENT_TYPE, firstType));
         if (!isValidFirstParam) {
             return createValidationError("Invalid first parameter for remote method '" + methodName +
-                    "'. Expected " + (isOnMessage ? "ChatEvent or MessageEvent" : "ChatEvent"));
+                    "'. Expected parameter of type " + (isOnMessage ? "ChatEvent or MessageEvent" : "ChatEvent"));
         }
 
         if (parameters.length == 2) {
             Type secondType = TypeUtils.getReferredType(parameters[1].type);
-            if (secondType.getTag() != TypeTags.OBJECT_TYPE_TAG) {
-                return createValidationError("Invalid second parameter for remote method '" + methodName +
-                        "'. Expected an event-specific Caller");
-            }
-            String callerName = secondType.getName();
-            if (!CALLER_TYPES.contains(callerName)) {
-                return createValidationError("Invalid second parameter for remote method '" + methodName +
-                        "'. Expected one of: MessageCaller, AppHomeCaller, CardClickedCaller, " +
-                        "SubmitFormCaller, WidgetUpdatedCaller, but got '" + callerName + "'");
-            }
             String expectedCaller = FUNCTION_CALLER_MAP.get(methodName);
-            if (expectedCaller != null && !expectedCaller.equals(callerName)) {
-                return createValidationError("Invalid caller type for remote method '" + methodName +
-                        "'. Expected " + expectedCaller + " but got " + callerName);
+            String actualCaller = matchedCallerName(secondType);
+            if (expectedCaller == null || !expectedCaller.equals(actualCaller)) {
+                return createValidationError("Invalid second parameter for remote method '" + methodName +
+                        "'. Expected parameter of type " + expectedCaller);
             }
         }
 
@@ -245,31 +264,27 @@ public final class ChatEventDispatcher {
     }
 
     private static BError createValidationError(String message) {
-        return ErrorCreator.createDistinctError("ListenerError", ModuleUtils.getModule(),
-                StringUtils.fromString(message));
+        return ErrorCreator.createError(ModuleUtils.getModule(), "ListenerError",
+                StringUtils.fromString(message), null, null);
     }
 
     /**
-     * Builds the argument array for the remote function, injecting the ChatEvent and Caller into the appropriate
-     * slots based on each parameter's declared type. Returns {@code null} if the signature is unsupported.
+     * Builds the argument array for the remote function, injecting the ChatEvent and Caller into the appropriate slots
+     * based on each parameter's declared type. Returns {@code null} if the signature is unsupported.
      */
     private static Object[] buildArgs(Parameter[] parameters, String functionName,
                                       BMap<BString, Object> chatEvent, Object callerObj) {
         Object[] args = new Object[parameters.length];
         for (int i = 0; i < parameters.length; i++) {
             Type referredType = TypeUtils.getReferredType(parameters[i].type);
-            if (referredType.getTag() == TypeTags.OBJECT_TYPE_TAG) {
-                String typeName = referredType.getName();
-                if (CALLER_TYPES.contains(typeName) && callerObj != null) {
-                    args[i] = callerObj;
-                } else {
-                    logInvalidSignature(functionName, "unsupported parameter type '" + typeName + "'");
+            if (matchedCallerName(referredType) != null) {
+                if (callerObj == null) {
+                    logInvalidSignature(functionName, "caller parameter present but no caller available");
                     return null;
                 }
-            } else if (referredType.getTag() == TypeTags.RECORD_TYPE_TAG &&
-                    (CHAT_EVENT_RECORD.equals(referredType.getName()) ||
-                            MESSAGE_EVENT_RECORD.equals(referredType.getName()) ||
-                            FUNC_ON_MESSAGE.equals(functionName))) {
+                args[i] = callerObj;
+            } else if (TypeUtils.isSameType(CHAT_EVENT_TYPE, referredType) ||
+                    TypeUtils.isSameType(MESSAGE_EVENT_TYPE, referredType)) {
                 args[i] = chatEvent;
             } else {
                 logInvalidSignature(functionName, "unsupported parameter type '" + referredType.getName() + "'");
