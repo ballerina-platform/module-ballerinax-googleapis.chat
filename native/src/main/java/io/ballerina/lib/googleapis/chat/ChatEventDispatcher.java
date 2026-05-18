@@ -116,28 +116,9 @@ public final class ChatEventDispatcher {
             return;
         }
 
-        Parameter[] parameters = remoteFunction.getParameters();
-        Object[] args = new Object[parameters.length];
-
-        for (int i = 0; i < parameters.length; i++) {
-            Type referredType = TypeUtils.getReferredType(parameters[i].type);
-            if (referredType.getTag() == TypeTags.OBJECT_TYPE_TAG) {
-                String typeName = referredType.getName();
-                if (CALLER_TYPES.contains(typeName) && callerObj != null) {
-                    args[i] = callerObj;
-                } else {
-                    logInvalidSignature(functionName, "unsupported parameter type '" + typeName + "'");
-                    return;
-                }
-            } else if (referredType.getTag() == TypeTags.RECORD_TYPE_TAG &&
-                    (CHAT_EVENT_RECORD.equals(referredType.getName()) ||
-                            MESSAGE_EVENT_RECORD.equals(referredType.getName()) ||
-                            FUNC_ON_MESSAGE.equals(functionName))) {
-                args[i] = chatEvent;
-            } else {
-                logInvalidSignature(functionName, "unsupported parameter type '" + referredType.getName() + "'");
-                return;
-            }
+        Object[] args = buildArgs(remoteFunction.getParameters(), functionName, chatEvent, callerObj);
+        if (args == null) {
+            return;
         }
 
         // Fire-and-forget on a virtual thread
@@ -266,6 +247,36 @@ public final class ChatEventDispatcher {
     private static BError createValidationError(String message) {
         return ErrorCreator.createDistinctError("ListenerError", ModuleUtils.getModule(),
                 StringUtils.fromString(message));
+    }
+
+    /**
+     * Builds the argument array for the remote function, injecting the ChatEvent and Caller into the appropriate
+     * slots based on each parameter's declared type. Returns {@code null} if the signature is unsupported.
+     */
+    private static Object[] buildArgs(Parameter[] parameters, String functionName,
+                                      BMap<BString, Object> chatEvent, Object callerObj) {
+        Object[] args = new Object[parameters.length];
+        for (int i = 0; i < parameters.length; i++) {
+            Type referredType = TypeUtils.getReferredType(parameters[i].type);
+            if (referredType.getTag() == TypeTags.OBJECT_TYPE_TAG) {
+                String typeName = referredType.getName();
+                if (CALLER_TYPES.contains(typeName) && callerObj != null) {
+                    args[i] = callerObj;
+                } else {
+                    logInvalidSignature(functionName, "unsupported parameter type '" + typeName + "'");
+                    return null;
+                }
+            } else if (referredType.getTag() == TypeTags.RECORD_TYPE_TAG &&
+                    (CHAT_EVENT_RECORD.equals(referredType.getName()) ||
+                            MESSAGE_EVENT_RECORD.equals(referredType.getName()) ||
+                            FUNC_ON_MESSAGE.equals(functionName))) {
+                args[i] = chatEvent;
+            } else {
+                logInvalidSignature(functionName, "unsupported parameter type '" + referredType.getName() + "'");
+                return null;
+            }
+        }
+        return args;
     }
 
     private static MethodType getAttachedFunction(BObject serviceObj, String functionName) {
