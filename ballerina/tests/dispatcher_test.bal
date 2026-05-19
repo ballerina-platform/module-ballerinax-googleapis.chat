@@ -230,3 +230,43 @@ service class MockChatService {
         self.submitFormReceived = true;
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// validateService — negative tests
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Caller-eligible handlers must declare the Caller parameter. Without it, the
+// handler runs but has no way to call `respond()`, causing the HTTP resource to
+// wait out the full response timeout and reply with `{}`. Reject at attach time.
+service class CallerlessOnMessageService {
+    *ChatService;
+    remote function onMessage(MessageEvent event) returns error? {
+    }
+}
+
+@test:Config {}
+function testValidateRejectsCallerlessOnMessage() {
+    CallerlessOnMessageService svc = new ();
+    error? result = validateService(svc);
+    test:assertTrue(result is error, "Expected validation error for onMessage without a Caller parameter");
+    if result is error {
+        test:assertTrue(result.message().includes("onMessage"),
+                "Error should mention the offending method name. Got: " + result.message());
+        test:assertTrue(result.message().includes("MessageCaller"),
+                "Error should mention the expected Caller type. Got: " + result.message());
+    }
+}
+
+// onRemovedFromSpace has no Caller in our routing table, so the 1-param form
+// stays valid. Sanity-check that we didn't accidentally regress this.
+service class RemovedFromSpaceOnlyService {
+    *ChatService;
+    remote function onRemovedFromSpace(ChatEvent event) returns error? {
+    }
+}
+
+@test:Config {}
+function testValidateAcceptsCallerlessOnRemovedFromSpace() returns error? {
+    RemovedFromSpaceOnlyService svc = new ();
+    check validateService(svc);
+}

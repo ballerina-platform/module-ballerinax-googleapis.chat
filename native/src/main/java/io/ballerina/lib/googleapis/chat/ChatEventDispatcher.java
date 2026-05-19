@@ -206,10 +206,16 @@ public final class ChatEventDispatcher {
 
     private static BError validateRemoteMethod(RemoteMethodType remoteMethod, String methodName) {
         Parameter[] parameters = remoteMethod.getParameters();
+        String expectedCaller = FUNCTION_CALLER_MAP.get(methodName);
+        boolean requiresCaller = expectedCaller != null;
 
-        if (parameters.length < 1 || parameters.length > 2) {
+        int expectedParamCount = requiresCaller ? 2 : 1;
+        if (parameters.length != expectedParamCount) {
+            String expectedSignature = requiresCaller
+                    ? "(ChatEvent, " + expectedCaller + ")"
+                    : "(ChatEvent)";
             return createValidationError("Invalid parameter count for remote method '" + methodName +
-                    "'. Expected 1 or 2 parameters: (ChatEvent) or (ChatEvent, <Caller>)");
+                    "'. Expected " + expectedSignature);
         }
 
         boolean isOnMessage = FUNC_ON_MESSAGE.equals(methodName);
@@ -221,11 +227,10 @@ public final class ChatEventDispatcher {
                     "'. Expected parameter of type " + (isOnMessage ? "ChatEvent or MessageEvent" : "ChatEvent"));
         }
 
-        if (parameters.length == 2) {
+        if (requiresCaller) {
             Type secondType = TypeUtils.getReferredType(parameters[1].type);
-            String expectedCaller = FUNCTION_CALLER_MAP.get(methodName);
             String actualCaller = matchedCallerName(secondType);
-            if (expectedCaller == null || !expectedCaller.equals(actualCaller)) {
+            if (!expectedCaller.equals(actualCaller)) {
                 return createValidationError("Invalid second parameter for remote method '" + methodName +
                         "'. Expected parameter of type " + expectedCaller);
             }
