@@ -14,7 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import ballerina/crypto;
 import ballerina/io;
 import ballerina/log;
 
@@ -32,15 +31,25 @@ type GoogleServiceAccountFile record {|
     string universe_domain?;
 |};
 
-isolated function normalizeServiceAccountAuth(ServiceAccountAuthConfig config) returns ServiceAccountConfig|error {
-    if config is ServiceAccountConfig {
-        return config;
-    }
+# Issuer email + PEM private key extracted from a service-account config. Holds
+# only strings — no `crypto:PrivateKey` (native data) — so it can cross isolated
+# class clone boundaries safely.
+type ServiceAccountKeyMaterial readonly & record {|
+    string issuer;
+    string pemPrivateKey;
+|};
 
+isolated function normalizeServiceAccountAuth(ServiceAccountAuthConfig config) returns ServiceAccountKeyMaterial|error {
     ServiceAccountCredentials credentials = config is ServiceAccountCredentials
         ? config
         : check loadServiceAccountCredentials((<ServiceAccountFileConfig>config).path);
-    return normalizeServiceAccountCredentials(credentials);
+    if credentials.'type != "service_account" {
+        return error ServiceAccountError("Invalid service account credentials type: expected 'service_account'");
+    }
+    return {
+        issuer: credentials.client_email,
+        pemPrivateKey: credentials.private_key
+    };
 }
 
 isolated function loadServiceAccountCredentials(string path) returns ServiceAccountCredentials|error {
@@ -57,18 +66,4 @@ isolated function loadServiceAccountCredentials(string path) returns ServiceAcco
         return error ServiceAccountError("Invalid service account credentials type: expected 'service_account'");
     }
     return check credentialsJson.cloneWithType(ServiceAccountCredentials);
-}
-
-isolated function normalizeServiceAccountCredentials(ServiceAccountCredentials credentials) returns ServiceAccountConfig|error {
-    if credentials.'type != "service_account" {
-        return error ServiceAccountError("Invalid service account credentials type: expected 'service_account'");
-    }
-
-    crypto:PrivateKey privateKey = check crypto:decodeRsaPrivateKeyFromContent(credentials.private_key.toBytes());
-    return {
-        issuer: credentials.client_email,
-        signatureConfig: {
-            config: privateKey
-        }
-    };
 }

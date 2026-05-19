@@ -15,44 +15,10 @@
 // under the License.
 
 import ballerina/http;
-import ballerina/jwt;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Client Authentication Types
 // ═══════════════════════════════════════════════════════════════════════════════
-
-# Google service account credentials for JWT-based authentication.
-# Maps to the service account JSON key file downloaded from
-# Google Cloud Console > IAM & Admin > Service Accounts.
-#
-# The library internally constructs a JWT assertion using these fields and
-# exchanges it for an OAuth2 access token via the JWT Bearer Grant (RFC 7523).
-# You do **not** need to set audience, scopes, or expiry — those are handled
-# automatically.
-#
-# **Field mapping from service account JSON:**
-# - `issuer` -> `client_email`
-# - `signatureConfig.config.keyFile` -> save `private_key` as a `.pem` file
-#
-# **Example:**
-# ```ballerina
-# chat:ServiceAccountConfig saConfig = {
-#     issuer: "my-bot@my-project.iam.gserviceaccount.com",
-#     signatureConfig: {
-#         config: { keyFile: "/path/to/private-key.pem" }
-#     }
-# };
-# ```
-#
-# + issuer - Service account email address (`client_email` from the JSON key file)
-# + signatureConfig - RSA signature configuration pointing to the PEM private key file
-@display {label: "Service Account Config"}
-public type ServiceAccountConfig record {|
-    @display {label: "Issuer (Service Account Email)"}
-    string issuer;
-    @display {label: "Signature Config"}
-    jwt:IssuerSignatureConfig signatureConfig;
-|};
 
 # Google service account credentials represented directly as a Ballerina record.
 # This mirrors the common fields in the service account JSON key file downloaded
@@ -121,7 +87,7 @@ public type ServiceAccountFileConfig record {|
 |};
 
 # Supported service-account-based authentication inputs.
-public type ServiceAccountAuthConfig ServiceAccountConfig|ServiceAccountCredentials|ServiceAccountFileConfig;
+public type ServiceAccountAuthConfig ServiceAccountCredentials|ServiceAccountFileConfig;
 
 # OAuth2 credentials for user-authenticated access. Obtain from
 # Google Cloud Console > APIs & Credentials > OAuth 2.0 Client IDs, then use the
@@ -148,13 +114,12 @@ public type OAuth2Config record {|
 // Client Connection Config
 // ═══════════════════════════════════════════════════════════════════════════════
 
-# Configuration for the Google Chat API client. Supports three authentication modes:
+# Configuration for the Google Chat API client. Supports four authentication modes:
 #
-# 1. **Service Account PEM** (`ServiceAccountConfig`): Service account email plus a PEM/private-key configuration.
-# 2. **Service Account Record** (`ServiceAccountCredentials`): Inline Ballerina record matching the Google JSON key file.
-# 3. **Service Account File** (`ServiceAccountFileConfig`): Path to the Google JSON key file.
-# 4. **OAuth2** (`OAuth2Config`): For user-authenticated access with automatic token refresh.
-# 5. **Bearer Token** (`http:BearerTokenConfig`): For short-lived pre-obtained tokens.
+# 1. **Service Account Record** (`ServiceAccountCredentials`): Inline Ballerina record matching the Google JSON key file.
+# 2. **Service Account File** (`ServiceAccountFileConfig`): Path to the Google JSON key file.
+# 3. **OAuth2** (`OAuth2Config`): For user-authenticated access with automatic token refresh.
+# 4. **Bearer Token** (`http:BearerTokenConfig`): For short-lived pre-obtained tokens.
 #
 # + auth - Authentication configuration (service account, OAuth2, or bearer token)
 # + httpVersion - The HTTP version to use. Defaults to HTTP/2
@@ -254,10 +219,10 @@ public type UpdateMessageQueries record {
 # Query parameters for getting a membership.
 #
 # + useAdminAccess - When `true`, the method runs using the user's Google Workspace
-#                    administrator privileges. The calling user must be a Workspace admin
-#                    with the manage chat and spaces conversations privilege. Requires the
-#                    `chat.admin.memberships` or `chat.admin.memberships.readonly` OAuth scope.
-#                    Getting app memberships in a space is not supported when using admin access
+# administrator privileges. The calling user must be a Workspace admin
+# with the manage chat and spaces conversations privilege. Requires the
+# `chat.admin.memberships` or `chat.admin.memberships.readonly` OAuth scope.
+# Getting app memberships in a space is not supported when using admin access
 public type GetMembershipQueries record {
     boolean useAdminAccess?;
 };
@@ -282,11 +247,11 @@ public type ListMembershipsQueries record {
 # Query parameters for updating a membership.
 #
 # + updateMask - Required. The field paths to update, separated by commas or use `*` to
-#                update all field paths. Currently supported field paths: `role`
+# update all field paths. Currently supported field paths: `role`
 # + useAdminAccess - When `true`, the method runs using the user's Google Workspace
-#                    administrator privileges. The calling user must be a Workspace admin
-#                    with the manage chat and spaces conversations privilege. Requires the
-#                    `chat.admin.memberships` OAuth scope
+# administrator privileges. The calling user must be a Workspace admin
+# with the manage chat and spaces conversations privilege. Requires the
+# `chat.admin.memberships` OAuth scope
 public type UpdateMembershipQueries record {
     string updateMask;
     boolean useAdminAccess?;
@@ -334,15 +299,15 @@ public type ListSpaceEventsQueries record {
 # `chat.admin.spaces` or `chat.admin.spaces.readonly` OAuth scope.
 #
 # + query - Required. A search query supporting fields such as `createTime`, `customer`,
-#           `displayName`, `externalUserAllowed`, `lastActiveTime`, `spaceHistoryState`,
-#           and `spaceType`. `customer` and `spaceType` are required fields in the query.
-#           Example: `customer = "customers/my_customer" AND spaceType = "SPACE"`
+# `displayName`, `externalUserAllowed`, `lastActiveTime`, `spaceHistoryState`,
+# and `spaceType`. `customer` and `spaceType` are required fields in the query.
+# Example: `customer = "customers/my_customer" AND spaceType = "SPACE"`
 # + useAdminAccess - Must be `true`. Runs the method using the user's Google Workspace
-#                    administrator privileges
+# administrator privileges
 # + pageSize - Maximum number of spaces to return (default 100, max 1000)
 # + pageToken - Page token from a previous search request for pagination
 # + orderBy - How to order the results. Supported values: `membershipCount.joined_direct_human_user_count`,
-#             `lastActiveTime`, `createTime`. Append `ASC` or `DESC` (e.g., `lastActiveTime DESC`)
+# `lastActiveTime`, `createTime`. Append `ASC` or `DESC` (e.g., `lastActiveTime DESC`)
 public type SearchSpacesQueries record {
     string query;
     boolean useAdminAccess?;
@@ -360,12 +325,12 @@ public type SearchSpacesQueries record {
 # OAuth scope.
 #
 # + space - Required. The space to create. `Space.spaceType` is required.
-#           Set `spaceType` to `SPACE` for a named space, `GROUP_CHAT` for a group
-#           chat, or `DIRECT_MESSAGE` for a 1:1 DM
+# Set `spaceType` to `SPACE` for a named space, `GROUP_CHAT` for a group
+# chat, or `DIRECT_MESSAGE` for a 1:1 DM
 # + requestId - Optional unique identifier for idempotency. A random UUID is recommended.
-#               Re-using an existing ID returns the previously created space
+# Re-using an existing ID returns the previously created space
 # + memberships - Optional list of human users or Google Groups to invite. The calling
-#                 user is added automatically. Maximum 49 memberships
+# user is added automatically. Maximum 49 memberships
 public type SetUpSpaceRequest record {
     Space space;
     string requestId?;

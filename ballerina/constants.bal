@@ -28,6 +28,16 @@ const string GOOGLE_TOKEN_URL = "https://accounts.google.com/o/oauth2/token";
 # Google OAuth2 token endpoint for JWT Bearer Grant (service account flow).
 const string GOOGLE_OAUTH2_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
+# RFC 7523 JWT Bearer Grant type identifier.
+const string JWT_BEARER_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer";
+
+# Lifetime (in seconds) requested for the JWT assertion. Google caps this at 3600s.
+const int TOKEN_LIFETIME_SECONDS = 3600;
+
+# Refresh window (in seconds) before expiry. The token provider refreshes when the
+# cached access token is within this window of its expiry.
+const int TOKEN_REFRESH_SKEW_SECONDS = 60;
+
 // ── Scopes ──────────────────────────────────────────────────────────────────────
 
 # OAuth2 scope for Chat bot access (service account).

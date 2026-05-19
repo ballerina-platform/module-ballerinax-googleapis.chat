@@ -15,23 +15,26 @@
 // under the License.
 
 import ballerina/http;
-import ballerina/jwt;
 import ballerina/mime;
 
 # Google Chat API client. Provides resource-based access to the Google Chat
 # REST API v1 for managing spaces, messages, memberships, reactions, and
 # attachments.
 #
-# Supports five authentication modes:
-# - **Service Account PEM** (`ServiceAccountConfig`): For Chat bots with service account email plus PEM/private-key config
+# Supports four authentication modes:
 # - **Service Account Record** (`ServiceAccountCredentials`): For Chat bots with inline service account credentials
 # - **Service Account File** (`ServiceAccountFileConfig`): For Chat bots with a JSON key file path
 # - **OAuth2** (`OAuth2Config`): For user-authenticated access with auto token refresh
 # - **Bearer Token** (`http:BearerTokenConfig`): For pre-obtained tokens
+#
+# For service-account auth, the client manages its own access token: it self-signs
+# a JWT assertion, exchanges it at Google's OAuth2 token endpoint, caches the
+# resulting access token, and refreshes it transparently before expiry.
 @display {label: "Google Chat", iconPath: "docs/icon.png"}
 public isolated client class Client {
     final http:Client httpClient;
     final http:Client uploadHttpClient;
+    final ServiceAccountTokenProvider? tokenProvider;
 
     # Initializes the Google Chat API client.
     #
@@ -62,7 +65,11 @@ public isolated client class Client {
             laxDataBinding: config.laxDataBinding
         };
 
-        // Configure auth based on the provided config type
+        // Configure auth based on the provided config type. For service-account
+        // auth we leave `httpClientConfig.auth` unset and inject the
+        // Authorization header per request via `self.tokenProvider` instead —
+        // this lets us self-refresh past Google's 1h JWT assertion cap.
+        ServiceAccountTokenProvider? provider = ();
         if config.auth is http:BearerTokenConfig {
             httpClientConfig.auth = <http:BearerTokenConfig>config.auth;
         } else if config.auth is OAuth2Config {
@@ -74,27 +81,32 @@ public isolated client class Client {
                 refreshToken: oauthConfig.refreshToken
             };
         } else {
-            // Service account auth — use JWT Bearer Grant (RFC 7523) to exchange
-            // a signed JWT assertion for an OAuth2 access token. Google Chat API
-            // requires a proper OAuth2 Bearer token, not a raw self-signed JWT.
-            ServiceAccountConfig saConfig = check normalizeServiceAccountAuth(<ServiceAccountAuthConfig>config.auth);
-            jwt:IssuerConfig assertionConfig = {
-                issuer: saConfig.issuer,
-                username: saConfig.issuer,
-                audience: GOOGLE_OAUTH2_TOKEN_URL,
-                expTime: 3600,
-                signatureConfig: saConfig.signatureConfig,
-                customClaims: {"scope": CHAT_BOT_SCOPE}
-            };
-            string assertion = check jwt:issue(assertionConfig);
-            httpClientConfig.auth = <http:OAuth2JwtBearerGrantConfig>{
-                tokenUrl: GOOGLE_OAUTH2_TOKEN_URL,
-                assertion: assertion
-            };
+            ServiceAccountKeyMaterial keyMaterial =
+                check normalizeServiceAccountAuth(<ServiceAccountAuthConfig>config.auth);
+            provider = check new ServiceAccountTokenProvider(
+                keyMaterial.issuer, keyMaterial.pemPrivateKey, CHAT_BOT_SCOPE
+            );
         }
 
+        self.tokenProvider = provider;
         self.httpClient = check new (serviceUrl, httpClientConfig);
         self.uploadHttpClient = check new (resolveUploadServiceUrl(serviceUrl), httpClientConfig);
+    }
+
+    # Returns the auth headers to attach to outgoing requests. For service-account
+    # mode this contains the (auto-refreshed) `Authorization: Bearer <token>`
+    # header. For OAuth2 / BearerToken modes the underlying http client handles
+    # auth, so this returns `()`.
+    #
+    # + return - A header map with the bearer token, `()` if the underlying
+    # http client handles auth, or an error if a service-account token refresh fails
+    private isolated function authHeaders() returns map<string|string[]>?|error {
+        ServiceAccountTokenProvider? provider = self.tokenProvider;
+        if provider is () {
+            return ();
+        }
+        string token = check provider.getAccessToken();
+        return {"Authorization": "Bearer " + token};
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -118,7 +130,8 @@ public isolated client class Client {
         if queries.filter is string {
             queryParams["filter"] = <string>queries.filter;
         }
-        return self.httpClient->get(path, targetType = ListSpacesResponse);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = ListSpacesResponse);
     }
 
     # Creates a named space (requires user authentication).
@@ -127,7 +140,8 @@ public isolated client class Client {
     # + return - The created space or an error
     resource isolated function post spaces(
             Space payload) returns Space|error {
-        return self.httpClient->post("/spaces", payload, targetType = Space);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->post("/spaces", payload, headers, targetType = Space);
     }
 
     # Returns details about a space.
@@ -136,7 +150,8 @@ public isolated client class Client {
     # + return - The space details or an error
     resource isolated function get spaces/[string spaceId]() returns Space|error {
         string path = "/spaces/" + spaceId;
-        return self.httpClient->get(path, targetType = Space);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = Space);
     }
 
     # Updates a space.
@@ -152,7 +167,8 @@ public isolated client class Client {
         if queries.updateMask is string {
             path = path + "?updateMask=" + <string>queries.updateMask;
         }
-        return self.httpClient->patch(path, payload, targetType = Space);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->patch(path, payload, headers, targetType = Space);
     }
 
     # Deletes a named space.
@@ -161,7 +177,8 @@ public isolated client class Client {
     # + return - An error if the operation fails
     resource isolated function delete spaces/[string spaceId]() returns error? {
         string path = "/spaces/" + spaceId;
-        http:Response _ = check self.httpClient->delete(path);
+        map<string|string[]>? headers = check self.authHeaders();
+        http:Response _ = check self.httpClient->delete(path, headers = headers);
     }
 
     # Finds an existing direct message space with a specified user.
@@ -174,7 +191,8 @@ public isolated client class Client {
         if queries.name is string {
             path = path + "?name=" + <string>queries.name;
         }
-        return self.httpClient->get(path, targetType = Space);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = Space);
     }
 
     # Searches for spaces in a Google Workspace organization (requires admin access).
@@ -206,7 +224,8 @@ public isolated client class Client {
             queryParts.push("orderBy=" + <string>queries.orderBy);
         }
         path = path + "?" + string:'join("&", ...queryParts);
-        return self.httpClient->get(path, targetType = SearchSpacesResponse);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = SearchSpacesResponse);
     }
 
     # Creates a space and adds specified users or Google Groups to it.
@@ -223,7 +242,8 @@ public isolated client class Client {
     # + return - The created (or existing, for DMs) space or an error
     resource isolated function post spaces/setup(
             SetUpSpaceRequest payload) returns Space|error {
-        return self.httpClient->post("/spaces:setup", payload, targetType = Space);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->post("/spaces:setup", payload, headers, targetType = Space);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -256,7 +276,8 @@ public isolated client class Client {
         if queryParts.length() > 0 {
             path = path + "?" + string:'join("&", ...queryParts);
         }
-        return self.httpClient->post(path, payload, targetType = Message);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->post(path, payload, headers, targetType = Message);
     }
 
     # Lists messages in a space.
@@ -267,7 +288,8 @@ public isolated client class Client {
     resource isolated function get spaces/[string spaceId]/messages(
             *ListMessagesQueries queries) returns ListMessagesResponse|error {
         string path = "/spaces/" + spaceId + "/messages";
-        return self.httpClient->get(path, targetType = ListMessagesResponse);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = ListMessagesResponse);
     }
 
     # Returns details about a message.
@@ -278,7 +300,8 @@ public isolated client class Client {
     resource isolated function get spaces/[string spaceId]/messages/[string messageId]()
             returns Message|error {
         string path = "/spaces/" + spaceId + "/messages/" + messageId;
-        return self.httpClient->get(path, targetType = Message);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = Message);
     }
 
     # Updates a message using PATCH. Allows updating the text, cards, and attachments.
@@ -302,7 +325,8 @@ public isolated client class Client {
         if queryParts.length() > 0 {
             path = path + "?" + string:'join("&", ...queryParts);
         }
-        return self.httpClient->patch(path, payload, targetType = Message);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->patch(path, payload, headers, targetType = Message);
     }
 
     # Deletes a message.
@@ -313,7 +337,8 @@ public isolated client class Client {
     resource isolated function delete spaces/[string spaceId]/messages/[string messageId]()
             returns error? {
         string path = "/spaces/" + spaceId + "/messages/" + messageId;
-        http:Response _ = check self.httpClient->delete(path);
+        map<string|string[]>? headers = check self.authHeaders();
+        http:Response _ = check self.httpClient->delete(path, headers = headers);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -328,7 +353,8 @@ public isolated client class Client {
     resource isolated function post spaces/[string spaceId]/members(
             Membership payload) returns Membership|error {
         string path = "/spaces/" + spaceId + "/members";
-        return self.httpClient->post(path, payload, targetType = Membership);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->post(path, payload, headers, targetType = Membership);
     }
 
     # Lists memberships in a space.
@@ -339,7 +365,8 @@ public isolated client class Client {
     resource isolated function get spaces/[string spaceId]/members(
             *ListMembershipsQueries queries) returns ListMembershipsResponse|error {
         string path = "/spaces/" + spaceId + "/members";
-        return self.httpClient->get(path, targetType = ListMembershipsResponse);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = ListMembershipsResponse);
     }
 
     # Returns details about a membership.
@@ -354,7 +381,8 @@ public isolated client class Client {
         if queries.useAdminAccess is boolean {
             path = path + "?useAdminAccess=" + (<boolean>queries.useAdminAccess).toString();
         }
-        return self.httpClient->get(path, targetType = Membership);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = Membership);
     }
 
     # Updates a membership (e.g., changes a member's role in a space).
@@ -374,7 +402,8 @@ public isolated client class Client {
             queryParts.push("useAdminAccess=" + (<boolean>queries.useAdminAccess).toString());
         }
         path = path + "?" + string:'join("&", ...queryParts);
-        return self.httpClient->patch(path, payload, targetType = Membership);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->patch(path, payload, headers, targetType = Membership);
     }
 
     # Deletes a membership (removes a user or Chat app from a space).
@@ -385,7 +414,8 @@ public isolated client class Client {
     resource isolated function delete spaces/[string spaceId]/members/[string memberId]()
             returns error? {
         string path = "/spaces/" + spaceId + "/members/" + memberId;
-        http:Response _ = check self.httpClient->delete(path);
+        map<string|string[]>? headers = check self.authHeaders();
+        http:Response _ = check self.httpClient->delete(path, headers = headers);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -401,7 +431,8 @@ public isolated client class Client {
     resource isolated function post spaces/[string spaceId]/messages/[string messageId]/reactions(
             Reaction payload) returns Reaction|error {
         string path = "/spaces/" + spaceId + "/messages/" + messageId + "/reactions";
-        return self.httpClient->post(path, payload, targetType = Reaction);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->post(path, payload, headers, targetType = Reaction);
     }
 
     # Lists reactions on a message.
@@ -413,7 +444,8 @@ public isolated client class Client {
     resource isolated function get spaces/[string spaceId]/messages/[string messageId]/reactions(
             *ListReactionsQueries queries) returns ListReactionsResponse|error {
         string path = "/spaces/" + spaceId + "/messages/" + messageId + "/reactions";
-        return self.httpClient->get(path, targetType = ListReactionsResponse);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = ListReactionsResponse);
     }
 
     # Deletes a reaction from a message.
@@ -425,7 +457,8 @@ public isolated client class Client {
     resource isolated function delete spaces/[string spaceId]/messages/[string messageId]/reactions/[string reactionId]()
             returns error? {
         string path = "/spaces/" + spaceId + "/messages/" + messageId + "/reactions/" + reactionId;
-        http:Response _ = check self.httpClient->delete(path);
+        map<string|string[]>? headers = check self.authHeaders();
+        http:Response _ = check self.httpClient->delete(path, headers = headers);
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -458,6 +491,13 @@ public isolated client class Client {
 
         http:Request request = new;
         request.setBodyParts([metadataPart, mediaPart], mime:MULTIPART_RELATED);
+        map<string|string[]>? headers = check self.authHeaders();
+        if headers is map<string|string[]> {
+            string|string[]? auth = headers["Authorization"];
+            if auth is string {
+                request.setHeader("Authorization", auth);
+            }
+        }
         return self.uploadHttpClient->post(path, request, targetType = UploadAttachmentResponse);
     }
 
@@ -470,7 +510,8 @@ public isolated client class Client {
     resource isolated function get spaces/[string spaceId]/messages/[string messageId]/attachments/[string attachmentId]()
             returns Attachment|error {
         string path = "/spaces/" + spaceId + "/messages/" + messageId + "/attachments/" + attachmentId;
-        return self.httpClient->get(path, targetType = Attachment);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = Attachment);
     }
 
     # Downloads attachment bytes using the media API.
@@ -482,7 +523,8 @@ public isolated client class Client {
     # + return - The downloaded media bytes or an error
     remote isolated function downloadMedia(string resourceName) returns byte[]|error {
         string path = "/media/" + resourceName + "?alt=media";
-        http:Response response = check self.httpClient->get(path);
+        map<string|string[]>? headers = check self.authHeaders();
+        http:Response response = check self.httpClient->get(path, headers);
         return response.getBinaryPayload();
     }
 
@@ -498,7 +540,8 @@ public isolated client class Client {
     resource isolated function get spaces/[string spaceId]/spaceEvents/[string spaceEventId]()
             returns SpaceEvent|error {
         string path = "/spaces/" + spaceId + "/spaceEvents/" + spaceEventId;
-        return self.httpClient->get(path, targetType = SpaceEvent);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = SpaceEvent);
     }
 
     # Lists events from a Google Chat space.
@@ -518,7 +561,8 @@ public isolated client class Client {
             queryParts.push("pageToken=" + <string>queries.pageToken);
         }
         path = path + "?" + string:'join("&", ...queryParts);
-        return self.httpClient->get(path, targetType = ListSpaceEventsResponse);
+        map<string|string[]>? headers = check self.authHeaders();
+        return self.httpClient->get(path, headers, targetType = ListSpaceEventsResponse);
     }
 }
 
