@@ -79,24 +79,24 @@ service class DispatcherService {
     #
     # + request - The incoming HTTP request from Google Chat
     # + return - The response record, or an error
-    resource function post .(http:Request request) returns map<anydata>|error {
+    resource function post .(http:Request request)
+            returns map<anydata>|http:Unauthorized|http:InternalServerError|error {
         HttpConfig? cfg = self.httpConfig;
         if cfg is () {
             log:printWarn("Received request but listener is not configured");
-            return {};
+            return <http:InternalServerError>{body: "Listener is not configured"};
         }
 
-        // Verify the bearer token before processing the event
         string|AuthenticationError bearerToken = extractBearerToken(request);
         if bearerToken is AuthenticationError {
             log:printWarn(WARN_HTTP_AUTH_FAILED, 'error = bearerToken);
-            return {};
+            return <http:Unauthorized>{body: "Missing or malformed Authorization header"};
         }
 
         true|AuthenticationError verified = verifyChatBearerToken(bearerToken, cfg);
         if verified is AuthenticationError {
             log:printWarn(WARN_HTTP_AUTH_FAILED, 'error = verified);
-            return {};
+            return <http:Unauthorized>{body: "Bearer token verification failed"};
         }
 
         // Parse the raw Chat event JSON directly
