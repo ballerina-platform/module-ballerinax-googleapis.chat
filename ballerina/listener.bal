@@ -84,11 +84,11 @@ public class Listener {
         }
         check validateService(serviceRef);
 
-        self.dispatcherService.setHttpConfig(svcConfig);
-        log:printInfo("Google Chat listener started in HTTP mode");
-
         string serviceTypeStr = self.getServiceTypeStr(serviceRef);
         check self.dispatcherService.addServiceRef(serviceTypeStr, serviceRef);
+
+        self.dispatcherService.setHttpConfig(svcConfig);
+        log:printInfo("Google Chat listener started in HTTP mode");
     }
 
     # Detaches a `ChatService` implementation from this listener.
