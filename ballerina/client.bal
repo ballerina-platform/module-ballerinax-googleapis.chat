@@ -16,6 +16,7 @@
 
 import ballerina/http;
 import ballerina/mime;
+import ballerina/url;
 
 # Google Chat API client. Provides resource-based access to the Google Chat
 # REST API v1 for managing spaces, messages, memberships, reactions, and
@@ -119,17 +120,7 @@ public isolated client class Client {
     # + return - A list of spaces or an error
     resource isolated function get spaces(
             *ListSpacesQueries queries) returns ListSpacesResponse|error {
-        string path = "/spaces";
-        map<string|string[]> queryParams = {};
-        if queries.pageSize is int {
-            queryParams["pageSize"] = queries.pageSize.toString();
-        }
-        if queries.pageToken is string {
-            queryParams["pageToken"] = <string>queries.pageToken;
-        }
-        if queries.filter is string {
-            queryParams["filter"] = <string>queries.filter;
-        }
+        string path = "/spaces" + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->get(path, headers, targetType = ListSpacesResponse);
     }
@@ -163,10 +154,7 @@ public isolated client class Client {
     resource isolated function patch spaces/[string spaceId](
             Space payload,
             *UpdateSpaceQueries queries) returns Space|error {
-        string path = "/spaces/" + spaceId;
-        if queries.updateMask is string {
-            path = path + "?updateMask=" + <string>queries.updateMask;
-        }
+        string path = "/spaces/" + spaceId + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->patch(path, payload, headers, targetType = Space);
     }
@@ -187,10 +175,7 @@ public isolated client class Client {
     # + return - The direct message space or an error
     resource isolated function get spaces/findDirectMessage(
             *FindDirectMessageQueries queries) returns Space|error {
-        string path = "/spaces:findDirectMessage";
-        if queries.name is string {
-            path = path + "?name=" + <string>queries.name;
-        }
+        string path = "/spaces:findDirectMessage" + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->get(path, headers, targetType = Space);
     }
@@ -208,22 +193,7 @@ public isolated client class Client {
     # + return - A paginated list of matching spaces or an error
     resource isolated function get spaces/search(
             *SearchSpacesQueries queries) returns SearchSpacesResponse|error {
-        string path = "/spaces:search";
-        string[] queryParts = [];
-        queryParts.push("query=" + queries.query);
-        if queries.useAdminAccess is boolean {
-            queryParts.push("useAdminAccess=" + (<boolean>queries.useAdminAccess).toString());
-        }
-        if queries.pageSize is int {
-            queryParts.push("pageSize=" + (<int>queries.pageSize).toString());
-        }
-        if queries.pageToken is string {
-            queryParts.push("pageToken=" + <string>queries.pageToken);
-        }
-        if queries.orderBy is string {
-            queryParts.push("orderBy=" + <string>queries.orderBy);
-        }
-        path = path + "?" + string:'join("&", ...queryParts);
+        string path = "/spaces:search" + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->get(path, headers, targetType = SearchSpacesResponse);
     }
@@ -259,23 +229,7 @@ public isolated client class Client {
     resource isolated function post spaces/[string spaceId]/messages(
             CreateMessageRequest payload,
             *CreateMessageQueries queries) returns Message|error {
-        string path = "/spaces/" + spaceId + "/messages";
-        string[] queryParts = [];
-        if queries.threadKey is string {
-            queryParts.push("threadKey=" + <string>queries.threadKey);
-        }
-        if queries.requestId is string {
-            queryParts.push("requestId=" + <string>queries.requestId);
-        }
-        if queries.messageReplyOption is MessageReplyOption {
-            queryParts.push("messageReplyOption=" + queries.messageReplyOption.toString());
-        }
-        if queries.messageId is string {
-            queryParts.push("messageId=" + <string>queries.messageId);
-        }
-        if queryParts.length() > 0 {
-            path = path + "?" + string:'join("&", ...queryParts);
-        }
+        string path = "/spaces/" + spaceId + "/messages" + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->post(path, payload, headers, targetType = Message);
     }
@@ -287,7 +241,7 @@ public isolated client class Client {
     # + return - A list of messages or an error
     resource isolated function get spaces/[string spaceId]/messages(
             *ListMessagesQueries queries) returns ListMessagesResponse|error {
-        string path = "/spaces/" + spaceId + "/messages";
+        string path = "/spaces/" + spaceId + "/messages" + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->get(path, headers, targetType = ListMessagesResponse);
     }
@@ -314,17 +268,7 @@ public isolated client class Client {
     resource isolated function patch spaces/[string spaceId]/messages/[string messageId](
             UpdateMessageRequest payload,
             *UpdateMessageQueries queries) returns Message|error {
-        string path = "/spaces/" + spaceId + "/messages/" + messageId;
-        string[] queryParts = [];
-        if queries.updateMask is string {
-            queryParts.push("updateMask=" + <string>queries.updateMask);
-        }
-        if queries.allowMissing is boolean {
-            queryParts.push("allowMissing=" + (<boolean>queries.allowMissing).toString());
-        }
-        if queryParts.length() > 0 {
-            path = path + "?" + string:'join("&", ...queryParts);
-        }
+        string path = "/spaces/" + spaceId + "/messages/" + messageId + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->patch(path, payload, headers, targetType = Message);
     }
@@ -364,7 +308,7 @@ public isolated client class Client {
     # + return - A list of memberships or an error
     resource isolated function get spaces/[string spaceId]/members(
             *ListMembershipsQueries queries) returns ListMembershipsResponse|error {
-        string path = "/spaces/" + spaceId + "/members";
+        string path = "/spaces/" + spaceId + "/members" + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->get(path, headers, targetType = ListMembershipsResponse);
     }
@@ -377,10 +321,7 @@ public isolated client class Client {
     # + return - The membership or an error
     resource isolated function get spaces/[string spaceId]/members/[string memberId](
             *GetMembershipQueries queries) returns Membership|error {
-        string path = "/spaces/" + spaceId + "/members/" + memberId;
-        if queries.useAdminAccess is boolean {
-            path = path + "?useAdminAccess=" + (<boolean>queries.useAdminAccess).toString();
-        }
+        string path = "/spaces/" + spaceId + "/members/" + memberId + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->get(path, headers, targetType = Membership);
     }
@@ -395,13 +336,7 @@ public isolated client class Client {
     resource isolated function patch spaces/[string spaceId]/members/[string memberId](
             Membership payload,
             *UpdateMembershipQueries queries) returns Membership|error {
-        string path = "/spaces/" + spaceId + "/members/" + memberId;
-        string[] queryParts = [];
-        queryParts.push("updateMask=" + queries.updateMask);
-        if queries.useAdminAccess is boolean {
-            queryParts.push("useAdminAccess=" + (<boolean>queries.useAdminAccess).toString());
-        }
-        path = path + "?" + string:'join("&", ...queryParts);
+        string path = "/spaces/" + spaceId + "/members/" + memberId + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->patch(path, payload, headers, targetType = Membership);
     }
@@ -443,7 +378,7 @@ public isolated client class Client {
     # + return - A list of reactions or an error
     resource isolated function get spaces/[string spaceId]/messages/[string messageId]/reactions(
             *ListReactionsQueries queries) returns ListReactionsResponse|error {
-        string path = "/spaces/" + spaceId + "/messages/" + messageId + "/reactions";
+        string path = "/spaces/" + spaceId + "/messages/" + messageId + "/reactions" + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->get(path, headers, targetType = ListReactionsResponse);
     }
@@ -551,19 +486,34 @@ public isolated client class Client {
     # + return - A list of space events or an error
     resource isolated function get spaces/[string spaceId]/spaceEvents(
             *ListSpaceEventsQueries queries) returns ListSpaceEventsResponse|error {
-        string path = "/spaces/" + spaceId + "/spaceEvents";
-        string[] queryParts = [];
-        queryParts.push("filter=" + queries.filter);
-        if queries.pageSize is int {
-            queryParts.push("pageSize=" + (<int>queries.pageSize).toString());
-        }
-        if queries.pageToken is string {
-            queryParts.push("pageToken=" + <string>queries.pageToken);
-        }
-        path = path + "?" + string:'join("&", ...queryParts);
+        string path = "/spaces/" + spaceId + "/spaceEvents" + check getPathForQueryParam(queries);
         map<string|string[]>? headers = check self.authHeaders();
         return self.httpClient->get(path, headers, targetType = ListSpaceEventsResponse);
     }
+}
+
+# Builds a URL-encoded query string from the given query parameters.
+#
+# Absent (nil) values are skipped. String values are percent-encoded; other
+# scalar values are stringified as-is. Returns an empty string when no
+# parameters are present, otherwise a string beginning with `?`.
+#
+# + queryParam - The query parameters, keyed by their API query name
+# + return - The encoded query string (possibly empty), or an error if encoding fails
+isolated function getPathForQueryParam(map<anydata> queryParam) returns string|error {
+    string[] params = [];
+    foreach [string, anydata] [key, value] in queryParam.entries() {
+        if value is () {
+            continue;
+        }
+        string encodedValue = value is string ? check url:encode(value, "UTF-8") : value.toString();
+        params.push(key, "=", encodedValue, "&");
+    }
+    if params.length() == 0 {
+        return "";
+    }
+    _ = params.pop();
+    return "?" + string:'join("", ...params);
 }
 
 isolated function resolveUploadServiceUrl(string serviceUrl) returns string {
