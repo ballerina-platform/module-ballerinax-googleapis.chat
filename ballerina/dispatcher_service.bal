@@ -99,9 +99,7 @@ service class DispatcherService {
             return <http:Unauthorized>{body: "Bearer token verification failed"};
         }
 
-        // Parse the raw Chat event JSON directly
         json reqPayload = check request.getJsonPayload();
-        log:printDebug(LOG_EVENT_DECODED + reqPayload.toJsonString());
 
         // Normalize the payload: APP_HOME events use a nested format where
         // event data is inside a `chat` sub-object (e.g., chat.type, chat.user,
