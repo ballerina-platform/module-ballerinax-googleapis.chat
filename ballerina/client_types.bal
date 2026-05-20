@@ -105,7 +105,7 @@ public type OAuth2Config record {|
     @display {label: "Client Secret"}
     string clientSecret;
     @display {label: "Refresh URL"}
-    string refreshUrl = GOOGLE_TOKEN_URL;
+    string refreshUrl = GOOGLE_OAUTH2_TOKEN_URL;
     @display {label: "Refresh Token"}
     string refreshToken;
 |};

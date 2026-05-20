@@ -22,10 +22,8 @@ const string CHAT_API_BASE_URL = "https://chat.googleapis.com/v1";
 # Base URL for Google Chat media upload requests.
 const string CHAT_UPLOAD_API_BASE_URL = "https://chat.googleapis.com/upload/v1";
 
-# Google OAuth2 token endpoint.
-const string GOOGLE_TOKEN_URL = "https://accounts.google.com/o/oauth2/token";
-
-# Google OAuth2 token endpoint for JWT Bearer Grant (service account flow).
+# Google OAuth2 token endpoint, used for both the user OAuth2 refresh-token grant
+# and the service-account JWT Bearer grant.
 const string GOOGLE_OAUTH2_TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 # RFC 7523 JWT Bearer Grant type identifier.
