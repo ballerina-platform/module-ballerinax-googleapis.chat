@@ -312,7 +312,7 @@ public type ListSpaceEventsQueries record {
 # `lastActiveTime`, `createTime`. Append `ASC` or `DESC` (e.g., `lastActiveTime DESC`)
 public type SearchSpacesQueries record {
     string query;
-    boolean useAdminAccess?;
+    boolean useAdminAccess = true;
     int pageSize?;
     string pageToken?;
     string orderBy?;
