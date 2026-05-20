@@ -209,10 +209,12 @@ public type ListMessagesQueries record {
 
 # Query parameters for updating a message.
 #
-# + updateMask - The field paths to update (comma-separated)
+# + updateMask - Required. The field paths to update, separated by commas (e.g.
+# `text,cardsV2`) or `*` to update all. Supported paths: `text`, `attachment`,
+# `cards`, `cardsV2`, `accessoryWidgets`, `quotedMessageMetadata`
 # + allowMissing - If true, create the message if it doesn't exist
 public type UpdateMessageQueries record {
-    string updateMask = "text";
+    string updateMask;
     boolean allowMissing?;
 };
 
