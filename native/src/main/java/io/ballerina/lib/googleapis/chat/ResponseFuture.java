@@ -95,6 +95,9 @@ public final class ResponseFuture {
     public BMap<BString, Object> waitForResponse(long timeoutSeconds) {
         try {
             return future.get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
         } catch (Exception e) {
             return null;
         }
