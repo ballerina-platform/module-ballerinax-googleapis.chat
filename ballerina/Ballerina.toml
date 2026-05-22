@@ -5,7 +5,7 @@ name= "googleapis.chat"
 version = "0.1.0"
 license = ["Apache-2.0"]
 authors = ["Ballerina"]
-keywords = ["Communication/Google Chat", "Cost/Freemium", "Vendor/Google"]
+keywords = ["Communication/Google Chat", "Cost/Freemium", "Vendor/Google", "Area/Communication", "Type/Connector", "Type/Trigger"]
 icon = "icon.png"
 repository = "https://github.com/ballerina-platform/module-ballerinax-googleapis.chat"
 
