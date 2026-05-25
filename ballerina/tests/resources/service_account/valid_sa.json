@@ -1,0 +1,9 @@
+{
+  "type": "service_account",
+  "project_id": "mock-project",
+  "private_key": "fake-private-key-for-tests-not-a-real-credential",
+  "client_email": "mock-bot@mock-project.example.com",
+  "client_id": "000000000000000000000",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "universe_domain": "googleapis.com"
+}

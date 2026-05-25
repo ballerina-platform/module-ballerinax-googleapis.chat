@@ -1,0 +1,28 @@
+{
+  "type": "ADDED_TO_SPACE",
+  "eventTime": "2026-05-25T08:42:23.312300Z",
+  "user": {
+    "name": "users/100000000000000000001",
+    "displayName": "Test User",
+    "email": "test.user@example.com",
+    "type": "HUMAN",
+    "domainId": "domain1"
+  },
+  "space": {
+    "name": "spaces/AAQA8RFdsEE",
+    "type": "ROOM",
+    "displayName": "Test Space",
+    "spaceThreadingState": "THREADED_MESSAGES",
+    "spaceType": "SPACE",
+    "spaceHistoryState": "HISTORY_ON",
+    "customer": "customers/C0domain1"
+  },
+  "common": {
+    "userLocale": "en-GB",
+    "hostApp": "CHAT",
+    "timeZone": {
+      "id": "Asia/Colombo",
+      "offset": 19800000
+    }
+  }
+}

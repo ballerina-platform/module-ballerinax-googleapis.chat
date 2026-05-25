@@ -1,0 +1,6 @@
+{
+  "type": "authorized_user",
+  "project_id": "mock-project",
+  "private_key": "fake-private-key-for-tests-not-a-real-credential",
+  "client_email": "mock-bot@mock-project.example.com"
+}

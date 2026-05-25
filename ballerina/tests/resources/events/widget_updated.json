@@ -1,0 +1,48 @@
+{
+  "type": "WIDGET_UPDATED",
+  "eventTime": "2026-05-25T09:25:54.440913Z",
+  "message": {
+    "name": "spaces/kCg_mSAAAAE/messages/E2C0cm87vUg.E2C0cm87vUg",
+    "sender": {
+      "name": "users/200000000000000000002",
+      "displayName": "Test Bot",
+      "type": "BOT"
+    },
+    "createTime": "2026-05-25T09:25:33.779871Z",
+    "text": "Here is the rich card demo",
+    "space": {
+      "name": "spaces/kCg_mSAAAAE",
+      "type": "DM",
+      "singleUserBotDm": true,
+      "spaceType": "DIRECT_MESSAGE",
+      "spaceHistoryState": "HISTORY_ON"
+    }
+  },
+  "user": {
+    "name": "users/100000000000000000001",
+    "displayName": "Test User",
+    "email": "test.user@example.com",
+    "type": "HUMAN",
+    "domainId": "domain1"
+  },
+  "space": {
+    "name": "spaces/kCg_mSAAAAE",
+    "type": "DM",
+    "singleUserBotDm": true,
+    "spaceType": "DIRECT_MESSAGE",
+    "spaceHistoryState": "HISTORY_ON"
+  },
+  "action": {
+    "actionMethodName": "fruitAutocomplete"
+  },
+  "common": {
+    "hostApp": "CHAT",
+    "parameters": {
+      "autocomplete_widget_query": "s"
+    },
+    "invokedFunction": "fruitAutocomplete"
+  },
+  "thread": {
+    "name": "spaces/kCg_mSAAAAE/threads/E2C0cm87vUg"
+  }
+}
