@@ -107,7 +107,17 @@ service http:Service / on mockChatServer {
     }
 
     resource function get spaces/[string spaceId]/members() returns json {
-        return {memberships: [{name: "spaces/" + spaceId + "/members/MEM123", state: "JOINED"}], nextPageToken: ""};
+        return {
+            memberships: [
+                {
+                    name: "spaces/" + spaceId + "/members/MEM123",
+                    state: "JOINED",
+                    role: "ROLE_MEMBER",
+                    member: {name: "users/USER123", "type": "HUMAN"}
+                }
+            ],
+            nextPageToken: ""
+        };
     }
 
     resource function get spaces/[string spaceId]/members/[string memberId]() returns json {
@@ -127,12 +137,22 @@ service http:Service / on mockChatServer {
 
     resource function post spaces/[string spaceId]/messages/[string messageId]/reactions(@http:Payload json payload)
             returns json {
-        return {name: "spaces/" + spaceId + "/messages/" + messageId + "/reactions/RCT123"};
+        return {
+            name: "spaces/" + spaceId + "/messages/" + messageId + "/reactions/RCT123",
+            user: {name: "users/USER123", "type": "HUMAN"},
+            emoji: {unicode: "👍"}
+        };
     }
 
     resource function get spaces/[string spaceId]/messages/[string messageId]/reactions() returns json {
         return {
-            reactions: [{name: "spaces/" + spaceId + "/messages/" + messageId + "/reactions/RCT123"}],
+            reactions: [
+                {
+                    name: "spaces/" + spaceId + "/messages/" + messageId + "/reactions/RCT123",
+                    user: {name: "users/USER123", "type": "HUMAN"},
+                    emoji: {unicode: "👍"}
+                }
+            ],
             nextPageToken: ""
         };
     }
