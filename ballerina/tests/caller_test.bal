@@ -172,6 +172,7 @@ function testSubmitFormCallerRespondWrapsUpdateCard() returns error? {
     map<anydata> result = check awaitPayload(respFut);
     RenderActionsResponse wrapped = check result.cloneWithType();
     test:assertTrue(wrapped.renderActions.action.navigations is Navigation[]);
+    test:assertTrue(wrapped.renderActions.action.navigations[0].updateCard is Card);
 }
 
 @test:Config {}
