@@ -16,14 +16,18 @@
 
 import ballerina/test;
 
+const int RESPONSE_WAIT_SECONDS = 5;
+
+isolated function awaitPayload(ResponseFuture respFut) returns map<anydata>|error =>
+    respFut.waitFor(RESPONSE_WAIT_SECONDS).ensureType();
+
 @test:Config {}
 function testMessageCallerRespond() returns error? {
     ResponseFuture respFut = new;
     MessageCaller caller = new (mockClient, TEST_SPACE, respFut);
     check caller->respond({text: "hello"});
-    map<anydata>? result = respFut.waitFor(1);
-    test:assertTrue(result is map<anydata>);
-    test:assertEquals((<map<anydata>>result)["text"], "hello");
+    map<anydata> result = check awaitPayload(respFut);
+    test:assertEquals(result["text"], "hello");
 }
 
 @test:Config {}
@@ -31,7 +35,7 @@ function testMessageCallerRespondDefaultEmpty() returns error? {
     ResponseFuture respFut = new;
     MessageCaller caller = new (mockClient, TEST_SPACE, respFut);
     check caller->respond();
-    map<anydata>? result = respFut.waitFor(1);
+    map<anydata> result = check awaitPayload(respFut);
     test:assertEquals(result, {});
 }
 
@@ -93,8 +97,8 @@ function testCardClickedCallerRespondMessage() returns error? {
     ResponseFuture respFut = new;
     CardClickedCaller caller = new (mockClient, TEST_SPACE, respFut);
     check caller->respond(<Message>{actionResponse: {'type: UPDATE_MESSAGE}, text: "updated card"});
-    map<anydata>? result = respFut.waitFor(1);
-    test:assertEquals((<map<anydata>>result)["text"], "updated card");
+    map<anydata> result = check awaitPayload(respFut);
+    test:assertEquals(result["text"], "updated card");
 }
 
 @test:Config {}
@@ -103,8 +107,8 @@ function testCardClickedCallerRespondCardWraps() returns error? {
     CardClickedCaller caller = new (mockClient, TEST_SPACE, respFut);
     Card card = {sections: [{widgets: [{textParagraph: {text: "hi"}}]}]};
     check caller->respond(card);
-    map<anydata>? result = respFut.waitFor(1);
-    RenderActionsResponse wrapped = check (<map<anydata>>result).cloneWithType();
+    map<anydata> result = check awaitPayload(respFut);
+    RenderActionsResponse wrapped = check result.cloneWithType();
     test:assertTrue(wrapped.renderActions.action.navigations is Navigation[]);
     test:assertTrue(wrapped.renderActions.action.navigations[0].updateCard is Card);
 }
@@ -142,8 +146,8 @@ function testAppHomeCallerRespondWrapsPushCard() returns error? {
     AppHomeCaller caller = new (respFut);
     Card card = {sections: [{widgets: [{textParagraph: {text: "home"}}]}]};
     check caller->respond(card);
-    map<anydata>? result = respFut.waitFor(1);
-    AppHomeResponse wrapped = check (<map<anydata>>result).cloneWithType();
+    map<anydata> result = check awaitPayload(respFut);
+    AppHomeResponse wrapped = check result.cloneWithType();
     test:assertTrue(wrapped.action.navigations is Navigation[]);
     test:assertTrue(wrapped.action.navigations[0].pushCard is Card);
 }
@@ -165,8 +169,8 @@ function testSubmitFormCallerRespondWrapsUpdateCard() returns error? {
     SubmitFormCaller caller = new (respFut);
     Card card = {sections: [{widgets: [{textParagraph: {text: "submitted"}}]}]};
     check caller->respond(card);
-    map<anydata>? result = respFut.waitFor(1);
-    RenderActionsResponse wrapped = check (<map<anydata>>result).cloneWithType();
+    map<anydata> result = check awaitPayload(respFut);
+    RenderActionsResponse wrapped = check result.cloneWithType();
     test:assertTrue(wrapped.renderActions.action.navigations is Navigation[]);
 }
 
@@ -186,8 +190,8 @@ function testWidgetUpdatedCallerRespond() returns error? {
     ResponseFuture respFut = new;
     WidgetUpdatedCaller caller = new (respFut);
     check caller->respond({actionResponse: {'type: UPDATE_WIDGET}});
-    map<anydata>? result = respFut.waitFor(1);
-    test:assertTrue(result is map<anydata>);
+    map<anydata> result = check awaitPayload(respFut);
+    test:assertTrue(result.hasKey("actionResponse"));
 }
 
 @test:Config {}

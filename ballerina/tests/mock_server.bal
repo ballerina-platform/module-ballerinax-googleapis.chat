@@ -31,7 +31,7 @@ import ballerina/http;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const int MOCK_PORT = 9091;
-const string MOCK_SERVICE_URL = "http://localhost:9091";
+final string MOCK_SERVICE_URL = string `http://localhost:${MOCK_PORT}`;
 
 listener http:Listener mockChatServer = new (MOCK_PORT);
 
@@ -41,20 +41,28 @@ service http:Service / on mockChatServer {
 
     # Handles `GET /spaces` (list), `GET /spaces:search`, and
     # `GET /spaces:findDirectMessage`. Google encodes these as one path segment.
-    resource function get [string action]() returns json {
-        if action == "spaces" {
-            return {spaces: [{name: "spaces/AAAAAAA", displayName: "Mock Space"}], nextPageToken: ""};
+    # Unknown actions return 404 so tests fail on route drift rather than passing.
+    resource function get [string action]() returns json|http:NotFound {
+        match action {
+            "spaces" => {
+                return {spaces: [{name: "spaces/AAAAAAA", displayName: "Mock Space"}], nextPageToken: ""};
+            }
+            "spaces:search" => {
+                return {spaces: [{name: "spaces/AAAAAAA"}], totalSize: 1, nextPageToken: ""};
+            }
+            "spaces:findDirectMessage" => {
+                return {name: "spaces/DM12345", spaceType: "DIRECT_MESSAGE"};
+            }
         }
-        if action == "spaces:search" {
-            return {spaces: [{name: "spaces/AAAAAAA"}], totalSize: 1, nextPageToken: ""};
-        }
-        // spaces:findDirectMessage
-        return {name: "spaces/DM12345", spaceType: "DIRECT_MESSAGE"};
+        return <http:NotFound>{body: {"error": "unsupported action: " + action}};
     }
 
     # Handles `POST /spaces` (create) and `POST /spaces:setup`.
-    resource function post [string action](@http:Payload json payload) returns json {
-        return {name: "spaces/AAAAAAA", displayName: "Mock Space"};
+    resource function post [string action](@http:Payload json payload) returns json|http:NotFound {
+        if action == "spaces" || action == "spaces:setup" {
+            return {name: "spaces/AAAAAAA", displayName: "Mock Space"};
+        }
+        return <http:NotFound>{body: {"error": "unsupported action: " + action}};
     }
 
     resource function get spaces/[string spaceId]() returns json {
@@ -123,8 +131,10 @@ service http:Service / on mockChatServer {
     }
 
     resource function get spaces/[string spaceId]/messages/[string messageId]/reactions() returns json {
-        return {reactions: [{name: "spaces/" + spaceId + "/messages/" + messageId + "/reactions/RCT123"}],
-                nextPageToken: ""};
+        return {
+            reactions: [{name: "spaces/" + spaceId + "/messages/" + messageId + "/reactions/RCT123"}],
+            nextPageToken: ""
+        };
     }
 
     resource function delete spaces/[string spaceId]/messages/[string messageId]/reactions/[string reactionId]()
@@ -136,8 +146,11 @@ service http:Service / on mockChatServer {
 
     resource function get spaces/[string spaceId]/messages/[string messageId]/attachments/[string attachmentId]()
             returns json {
-        return {name: "spaces/" + spaceId + "/messages/" + messageId + "/attachments/" + attachmentId,
-                contentName: "file.txt", contentType: "text/plain"};
+        return {
+            name: "spaces/" + spaceId + "/messages/" + messageId + "/attachments/" + attachmentId,
+            contentName: "file.txt",
+            contentType: "text/plain"
+        };
     }
 
     resource function get media/[string resourceName]() returns http:Ok {
@@ -147,12 +160,21 @@ service http:Service / on mockChatServer {
     // ─── Space events ───────────────────────────────────────────────────────────────
 
     resource function get spaces/[string spaceId]/spaceEvents() returns json {
-        return {spaceEvents: [{name: "spaces/" + spaceId + "/spaceEvents/EVT123",
-                eventType: "google.workspace.chat.message.v1.created"}], nextPageToken: ""};
+        return {
+            spaceEvents: [
+                {
+                    name: "spaces/" + spaceId + "/spaceEvents/EVT123",
+                    eventType: "google.workspace.chat.message.v1.created"
+                }
+            ],
+            nextPageToken: ""
+        };
     }
 
     resource function get spaces/[string spaceId]/spaceEvents/[string spaceEventId]() returns json {
-        return {name: "spaces/" + spaceId + "/spaceEvents/" + spaceEventId,
-                eventType: "google.workspace.chat.message.v1.created"};
+        return {
+            name: "spaces/" + spaceId + "/spaceEvents/" + spaceEventId,
+            eventType: "google.workspace.chat.message.v1.created"
+        };
     }
 }

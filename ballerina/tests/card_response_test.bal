@@ -284,8 +284,8 @@ function testDialogResponseWithFooterAndForm() returns error? {
         }
     };
     check caller->respond(dialogResponse);
-    map<anydata>? result = respFut.waitFor(1);
-    Message message = check (<map<anydata>>result).cloneWithType();
+    map<anydata> result = check awaitPayload(respFut);
+    Message message = check result.cloneWithType();
 
     test:assertEquals(message.actionResponse?.dialogAction?.actionStatus?.statusCode, "OK");
     Card body = message.actionResponse?.dialogAction?.dialog?.body ?: {};
