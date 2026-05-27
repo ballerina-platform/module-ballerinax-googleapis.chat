@@ -1,0 +1,23 @@
+{
+  "commonEventObject": {
+    "userLocale": "en-GB",
+    "hostApp": "CHAT",
+    "platform": "WEB",
+    "invokedFunction": "onAppHome"
+  },
+  "authorizationEventObject": {
+    "userOAuthToken": "REDACTED_OAUTH_TOKEN"
+  },
+  "chat": {
+    "type": "APP_HOME",
+    "user": {
+      "name": "100000000000000000001",
+      "type": "HUMAN"
+    },
+    "space": {
+      "name": "kCg_mSAAAAE",
+      "singleUserBotDm": true,
+      "spaceType": "DIRECT_MESSAGE"
+    }
+  }
+}

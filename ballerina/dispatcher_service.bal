@@ -100,35 +100,7 @@ service class DispatcherService {
         }
 
         json reqPayload = check request.getJsonPayload();
-
-        // Normalize the payload: APP_HOME events use a nested format where
-        // event data is inside a `chat` sub-object (e.g., chat.type, chat.user,
-        // chat.space) and `commonEventObject` is at root level. This is the
-        // Google Workspace Add-ons event format, which Google Chat uses for
-        // APP_HOME even for standard HTTP endpoint Chat apps.
-        // We lift `chat.*` fields to root and map `commonEventObject` → `common`
-        // so the payload matches the flat `ChatEvent` record structure.
-        json normalizedPayload = reqPayload;
-        json|error chatObj = reqPayload.chat;
-        if chatObj is map<json> {
-            map<json> payloadMap = check reqPayload.cloneWithType();
-            // Lift all fields from `chat` (type, user, space, etc.) to root
-            foreach var [key, value] in chatObj.entries() {
-                payloadMap[key] = value;
-            }
-            // Map `commonEventObject` → `common` (the ChatEvent field name)
-            json|error commonEventObj = reqPayload.commonEventObject;
-            if commonEventObj is map<json> {
-                payloadMap["common"] = commonEventObj;
-            }
-            // Remove the wrapper fields that don't exist in ChatEvent
-            _ = payloadMap.removeIfHasKey("chat");
-            _ = payloadMap.removeIfHasKey("commonEventObject");
-            _ = payloadMap.removeIfHasKey("authorizationEventObject");
-            normalizedPayload = payloadMap;
-            log:printDebug("Normalized add-on style payload to flat ChatEvent format");
-        }
-
+        json normalizedPayload = check normalizeEventPayload(reqPayload);
         ChatEvent chatEvent = check normalizedPayload.cloneWithType(ChatEvent);
         log:printInfo(LOG_EVENT_RECEIVED + chatEvent.'type.toString());
 
@@ -270,6 +242,41 @@ service class DispatcherService {
         map<anydata>? result = responseFuture.waitFor(RESPONSE_TIMEOUT_SECONDS);
         return result ?: {};
     }
+}
+
+# Normalizes an incoming Chat event payload to the flat `ChatEvent` structure.
+#
+# APP_HOME events use the Google Workspace Add-ons format, where the event data
+# is nested inside a `chat` sub-object (e.g., `chat.type`, `chat.user`, `chat.space`)
+# and `commonEventObject` sits at the root. Google Chat uses this shape for APP_HOME
+# even for standard HTTP endpoint Chat apps. This lifts `chat.*` fields to the root
+# and maps `commonEventObject` → `common` so the payload matches `ChatEvent`.
+#
+# Non-add-on payloads (no `chat` object) are returned unchanged.
+#
+# + reqPayload - The raw JSON payload from the request
+# + return - The normalized payload, or an error if cloning fails
+isolated function normalizeEventPayload(json reqPayload) returns json|error {
+    json|error chatObj = reqPayload.chat;
+    if chatObj !is map<json> {
+        return reqPayload;
+    }
+    map<json> payloadMap = check reqPayload.cloneWithType();
+    // Lift all fields from `chat` (type, user, space, etc.) to root
+    foreach var [key, value] in chatObj.entries() {
+        payloadMap[key] = value;
+    }
+    // Map `commonEventObject` → `common` (the ChatEvent field name)
+    json|error commonEventObj = reqPayload.commonEventObject;
+    if commonEventObj is map<json> {
+        payloadMap["common"] = commonEventObj;
+    }
+    // Remove the wrapper fields that don't exist in ChatEvent
+    _ = payloadMap.removeIfHasKey("chat");
+    _ = payloadMap.removeIfHasKey("commonEventObject");
+    _ = payloadMap.removeIfHasKey("authorizationEventObject");
+    log:printDebug("Normalized add-on style payload to flat ChatEvent format");
+    return payloadMap;
 }
 
 # Native external function that dispatches a Chat event to the appropriate

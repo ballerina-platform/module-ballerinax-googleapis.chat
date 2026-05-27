@@ -1,0 +1,30 @@
+{
+  "type": "APP_COMMAND",
+  "eventTime": "2026-05-25T08:44:02.128678Z",
+  "user": {
+    "name": "users/100000000000000000001",
+    "displayName": "Test User",
+    "email": "test.user@example.com",
+    "type": "HUMAN",
+    "domainId": "domain1"
+  },
+  "space": {
+    "name": "spaces/kCg_mSAAAAE",
+    "type": "DM",
+    "singleUserBotDm": true,
+    "spaceType": "DIRECT_MESSAGE",
+    "spaceHistoryState": "HISTORY_ON"
+  },
+  "common": {
+    "userLocale": "en-GB",
+    "hostApp": "CHAT",
+    "timeZone": {
+      "id": "Asia/Colombo",
+      "offset": 19800000
+    }
+  },
+  "appCommandMetadata": {
+    "appCommandId": 1,
+    "appCommandType": "QUICK_COMMAND"
+  }
+}
