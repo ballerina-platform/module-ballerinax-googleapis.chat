@@ -98,6 +98,8 @@ OAuth 2.0 lets your app act on behalf of a signed-in user — required for opera
 
 2. Open **APIs & Services → Credentials → Create credentials → OAuth client ID**.
 
+    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/create-credentials.png alt="Create OAuth Client" width="50%">
+
 3. Fill in the form:
 
     | Field                    | Value                                              |
@@ -112,6 +114,15 @@ OAuth 2.0 lets your app act on behalf of a signed-in user — required for opera
 
     <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/oauth-playground.png alt="OAuth Playground" width="50%">
 
+#### Option C — Bearer token (for quick tests)
+
+For short-lived experiments you can use a Google access token directly:
+
+```bash
+gcloud auth print-access-token
+```
+
+> **Note:** Google access tokens expire in roughly one hour. Bearer-token auth is best for short-lived processes (CI jobs, scripts, manual tests). For long-running services, use service account or OAuth 2.0 — both auto-refresh tokens.
 
 ## Quickstart
 
@@ -252,23 +263,12 @@ Execute the commands below to build from the source.
    ./gradlew clean build -Pdebug=<port>
    ```
 
-5. To debug with the Ballerina language:
-
-   ```bash
-   ./gradlew clean build -PbalJavaDebug=<port>
-   ```
-
-6. Publish the generated artifacts to the local Ballerina Central repository:
+5. Publish the generated artifacts to the local Ballerina Central repository:
 
     ```bash
-    ./gradlew clean build -PpublishToLocalCentral=true
+    ./gradlew clean build publishToLocalCentral
     ```
 
-7. Publish the generated artifacts to the Ballerina Central repository:
-
-   ```bash
-   ./gradlew clean build -PpublishToCentral=true
-   ```
 
 ## Contribute to Ballerina
 

@@ -55,6 +55,6 @@ service chat:ChatService on chatListener {
     remote function onMessage(chat:MessageEvent event, chat:MessageCaller caller) returns error? {
         string text = event.message.text ?: "";
         io:println("Received message: ", text);
-        check caller->respond({text: "You said: " + text});
+        check caller->respond({text: "Echo: " + text});
     }
 }

@@ -142,7 +142,7 @@ final chat:Client chatClient = check new ({auth: oauthAuth});
 
 ```ballerina
 // List spaces the app has access to.
-chat:ListSpacesResponse spaces = check chatClient->/spaces;
+chat:ListSpacesResponse spaces = check chatClient->/spaces();
 
 // Send a message to a space.
 chat:Message sent = check chatClient->/spaces/["AAAA1234"]/messages.post({
