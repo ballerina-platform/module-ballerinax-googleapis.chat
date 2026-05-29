@@ -53,11 +53,13 @@ For production, deploy the listener behind any HTTPS-terminating load balancer o
 
 2. Provide the **App name**, **Avatar URL** and **Description**.
 
-3. Under **Interactive features**, enable the features your app needs (receive 1:1 messages, join spaces, slash commands, etc.).
+3. Make sure **"Build this Chat app as a Workspace add-on"** is **unchecked** — this connector handles interaction events directly over HTTP, not as a Workspace add-on.
 
-4. Under **Connection settings**, choose **HTTP endpoint URL** and paste the ngrok (or production) HTTPS URL from Step 3.
+4. Under **Interactive features**, enable the features your app needs (receive 1:1 messages, join spaces, slash commands, etc.).
 
-5. Set **Authentication audience** to either:
+5. Under **Connection settings**, choose **HTTP endpoint URL** and paste the ngrok (or production) HTTPS URL from Step 3.
+
+6. Set **Authentication audience** to either:
 
     - the same **HTTP endpoint URL** (use `HttpEndpointUrlConfig` / `endpointUrl` in the listener), or
     - your **Project number** (use `ProjectNumberConfig` / `projectNumber` in the listener).
@@ -66,7 +68,7 @@ For production, deploy the listener behind any HTTPS-terminating load balancer o
 
     <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/connection-settings.png alt="Connection Settings" width="50%">
 
-6. Under **Visibility**, add the email addresses of users or Google Workspace domains that can install your app.
+7. Under **Visibility**, add the email addresses of users or Google Workspace domains that can install your app.
 
 ### Step 5: Choose an authentication method
 
@@ -76,7 +78,7 @@ The connector supports three authentication modes. Pick the one that matches you
 
 A service account lets your app act as itself — ideal for bots that post messages, manage memberships, or run continuously.
 
-1. Navigate to **IAM & Admin → Service Accounts** and click **Create service account**.
+1. Navigate to **APIs & Services → Credentials**, open the **+ Create credentials** dropdown, and select **Service account**.
 
     <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/create-service-account.png alt="Create Service Account" width="50%">
 
@@ -90,7 +92,7 @@ A service account lets your app act as itself — ideal for bots that post messa
 
 OAuth 2.0 lets your app act on behalf of a signed-in user — required for operations like attachment uploads that need user scopes.
 
-1. Open **APIs & Services → OAuth consent screen**, configure your consent screen, and add the Chat scopes your app uses (for example `https://www.googleapis.com/auth/chat.messages`, `https://www.googleapis.com/auth/chat.spaces`).
+1. Open **APIs & Services → OAuth consent screen** and configure your consent screen (provide an app name and support email). You do not need to add scopes here — they are requested at authorisation time in the OAuth Playground.
 
     <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/consent-screen.png alt="Consent Screen" width="50%">
 
@@ -135,7 +137,7 @@ final chat:Client chatClient = check new ({auth: oauthAuth});
 
 ```ballerina
 // List spaces the app has access to.
-chat:ListSpacesResponse spaces = check chatClient->/spaces;
+chat:ListSpacesResponse spaces = check chatClient->/spaces();
 
 // Send a message to a space.
 chat:Message sent = check chatClient->/spaces/["AAAA1234"]/messages.post({
@@ -145,7 +147,7 @@ chat:Message sent = check chatClient->/spaces/["AAAA1234"]/messages.post({
 
 ### Step 2 (Listener): Initialise a Chat listener
 
-Use this if your app needs to handle interaction events from Google Chat (messages, card clicks, slash commands, etc.). The listener exposes an HTTP endpoint that Google Chat POSTs events to; it provides an internal Chat API client used by the injected `chat:Caller` — no separate client needed for replies.
+Use this if your app needs to handle interaction events from Google Chat (messages, card clicks, slash commands, etc.). The listener exposes an HTTP endpoint that Google Chat POSTs events to; it provides an internal Chat API client used by the injected caller — no separate client needed for replies.
 
 ```ballerina
 listener chat:Listener chatListener = new (8000, {
@@ -157,8 +159,8 @@ listener chat:Listener chatListener = new (8000, {
 }
 service chat:ChatService on chatListener {
 
-    remote function onMessage(chat:ChatEvent event, chat:Caller caller) returns error? {
-        _ = check caller->reply("Echo: " + (event.message?.text ?: ""));
+    remote function onMessage(chat:MessageEvent event, chat:MessageCaller caller) returns error? {
+        check caller->respond({text: "Echo: " + (event.message.text ?: "")});
     }
 }
 ```
@@ -179,7 +181,7 @@ The `endpointUrl` must exactly match the **HTTP endpoint URL** configured in you
 | `onAppHome`           | A user opens the app's home page.                                |
 | `onWidgetUpdated`     | A widget requests an autocomplete or similar update.             |
 
-Each handler receives the `chat:ChatEvent` and (optionally) a `chat:Caller` pre-configured with the event's space context. Use the caller to `respond` (synchronously, within the event window) or to call Chat APIs asynchronously (`sendMessage`, `updateMessage`, etc.).
+Each handler receives the event and (optionally) an event-specific caller (`chat:MessageCaller`, `chat:CardClickedCaller`, `chat:AppHomeCaller`, etc.) pre-configured with the event's space context. Use the caller to `respond` (synchronously, within the event window) or to call Chat APIs asynchronously (`sendMessage`, `updateMessage`, etc.).
 
 ### Step 4: Run the Ballerina application
 
@@ -195,11 +197,9 @@ ngrok http 8000
 
 ## Examples
 
-The `googleapis.chat` connector provides practical examples illustrating usage in various scenarios. Explore these [examples](https://github.com/ballerina-platform/module-ballerinax-googleapis.chat/tree/main/ballerina/examples).
+The `googleapis.chat` connector provides practical examples illustrating usage in various scenarios. Explore these [examples](https://github.com/ballerina-platform/module-ballerinax-googleapis.chat/tree/main/examples).
 
-1. [HTTP endpoint listener with service account](https://github.com/ballerina-platform/module-ballerinax-googleapis.chat/tree/main/ballerina/examples/http_service_account) — Receive Chat events over HTTP with Google-signed bearer-token verification; reply via the injected `chat:Caller`.
-
-2. [Echo uploaded image](https://github.com/ballerina-platform/module-ballerinax-googleapis.chat/tree/main/ballerina/examples/echo_uploaded_image) — Demonstrates attachment download and upload using the Chat client (requires OAuth user scopes).
+1. [Echo bot](https://github.com/ballerina-platform/module-ballerinax-googleapis.chat/tree/main/examples/echo-bot) — A minimal Google Chat app that replies to every message with the same text, demonstrating the listener's HTTP delivery mode and replying via the injected `chat:MessageCaller`.
 
 ## Issues and projects
 
