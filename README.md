@@ -25,13 +25,13 @@ To use the Google Chat connector, you must have access to the Google Chat API th
 
 2. Click the project drop-down menu and select an existing project, or create a new one for your Chat app.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/gcp-console-project-view.png alt="GCP Console Project View" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/gcp-console-project-view.png" alt="GCP Console Project View" width="50%">
 
 ### Step 2: Enable the Google Chat API
 
 1. Navigate to **APIs & Services → Library** and enable the **Google Chat API**.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/enable-chat-api.png alt="Enable Google Chat API" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/enable-chat-api.png" alt="Enable Google Chat API" width="50%">
 
 ### Step 3: Expose your local listener (development)
 
@@ -49,7 +49,7 @@ For production, deploy the listener behind any HTTPS-terminating load balancer o
 
 1. In the Google Cloud Console, open the **Google Chat API** page and select the **Configuration** tab.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/chat-app-configuration.png alt="Chat App Configuration" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/chat-app-configuration.png" alt="Chat App Configuration" width="50%">
 
 2. Provide the **App name**, **Avatar URL** and **Description**.
 
@@ -66,7 +66,7 @@ For production, deploy the listener behind any HTTPS-terminating load balancer o
 
     The value you choose here must match what your service annotation declares — the listener uses it to validate the `aud` claim of the Google-signed bearer token on every incoming request.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/connection-settings.png alt="Connection Settings" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/connection-settings.png" alt="Connection Settings" width="50%">
 
 7. Under **Visibility**, add the email addresses of users or Google Workspace domains that can install your app.
 
@@ -80,13 +80,13 @@ A service account lets your app act as itself — ideal for bots that post messa
 
 1. Navigate to **APIs & Services → Credentials**, open the **+ Create credentials** dropdown, and select **Service account**.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/create-service-account.png alt="Create Service Account" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/create-service-account.png" alt="Create Service Account" width="50%">
 
 2. Give it a name, click **Done**, then open the created service account and go to the **Keys** tab.
 
 3. Click **Add key → Create new key → JSON** and save the downloaded JSON file securely. You will reference its path from `Config.toml`.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/download-sa-key.png alt="Download Service Account Key" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/download-sa-key.png" alt="Download Service Account Key" width="50%">
 
 #### Option B — OAuth 2.0 (for user-scoped actions)
 
@@ -94,11 +94,11 @@ OAuth 2.0 lets your app act on behalf of a signed-in user — required for opera
 
 1. Open **APIs & Services → OAuth consent screen** and configure your consent screen (provide an app name and support email). You do not need to add scopes here — they are requested at authorisation time in the OAuth Playground.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/consent-screen.png alt="Consent Screen" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/consent-screen.png" alt="Consent Screen" width="50%">
 
 2. Open **APIs & Services → Credentials → Create credentials → OAuth client ID**.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/create-credentials.png alt="Create OAuth Client" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/create-credentials.png" alt="Create OAuth Client" width="50%">
 
 3. Fill in the form:
 
@@ -112,7 +112,7 @@ OAuth 2.0 lets your app act on behalf of a signed-in user — required for opera
 
 5. Use the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground) to obtain a refresh token: open the gear icon → "Use your own OAuth credentials" → enter the client ID and secret → authorise the Chat scopes you need → exchange the authorisation code for tokens.
 
-    <img src=https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/oauth-playground.png alt="OAuth Playground" width="50%">
+    <img src="https://raw.githubusercontent.com/ballerina-platform/module-ballerinax-googleapis.chat/main/docs/setup/resources/oauth-playground.png" alt="OAuth Playground" width="50%">
 
 #### Option C — Bearer token (for quick tests)
 
