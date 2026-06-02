@@ -1,0 +1,5 @@
+[package]
+org = "samples"
+name = "echo_bot"
+version = "0.1.0"
+distribution = "2201.13.0"
