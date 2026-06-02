@@ -48,6 +48,9 @@ build
 target
 generated
 
+# Ballerina development-time tracing artifact
+trace_enabled.bal
+
 # Environment files
 *.env
 **/Config.toml
