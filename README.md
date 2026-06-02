@@ -126,17 +126,21 @@ gcloud auth print-access-token
 
 ## Quickstart
 
-To use the `googleapis.chat` connector in your Ballerina application, modify the `.bal` file as follows.
+The connector has two independent entry points — a REST **client** for calling the Chat API and a **listener** for handling interaction events. Follow the track that matches your use case.
 
-### Step 1: Import the module
+### Client
+
+Use this if your app only calls the Chat REST API (no event handling).
+
+#### Step 1: Import the module
 
 ```ballerina
 import ballerinax/googleapis.chat;
 ```
 
-### Step 2 (Client): Initialise a Chat client
+#### Step 2: Initialise a Chat client
 
-Use this if your app only calls the Chat REST API (no event handling). Create a `chat:ConnectionConfig` with the credentials obtained during setup.
+Create a `chat:ConnectionConfig` with the credentials obtained during setup.
 
 ```ballerina
 configurable chat:OAuth2Config oauthAuth = ?;
@@ -144,21 +148,35 @@ configurable chat:OAuth2Config oauthAuth = ?;
 final chat:Client chatClient = check new ({auth: oauthAuth});
 ```
 
-### Step 3 (Client): Invoke connector operations
+#### Step 3: Invoke connector operations
 
 ```ballerina
 // List spaces the app has access to.
 chat:ListSpacesResponse spaces = check chatClient->/spaces();
 
 // Send a message to a space.
-chat:Message sent = check chatClient->/spaces/["AAAA1234"]/messages.post({
+chat:Message sent = check chatClient->/spaces/["space-id"]/messages.post({
     text: "Hello from Ballerina!"
 });
 ```
 
-### Step 2 (Listener): Initialise a Chat listener
+#### Step 4: Run the Ballerina application
+
+```bash
+bal run
+```
+
+### Listener
 
 Use this if your app needs to handle interaction events from Google Chat (messages, card clicks, slash commands, etc.). The listener exposes an HTTP endpoint that Google Chat POSTs events to; it provides an internal Chat API client used by the injected caller — no separate client needed for replies.
+
+#### Step 1: Import the module
+
+```ballerina
+import ballerinax/googleapis.chat;
+```
+
+#### Step 2: Initialise a Chat listener
 
 ```ballerina
 listener chat:Listener chatListener = new (8000, {
@@ -178,7 +196,7 @@ service chat:ChatService on chatListener {
 
 The `endpointUrl` must exactly match the **HTTP endpoint URL** configured in your Chat app (Setup Step 4). The listener uses it to validate the `aud` claim of the incoming Google-signed bearer token. If you configured the **Authentication audience** as your project number instead, use `projectNumber: "<your-project-number>"` in the annotation in place of `endpointUrl`.
 
-### Step 3 (Listener): Implement handlers
+#### Step 3: Implement handlers
 
 `chat:ChatService` exposes one optional `remote function` per Chat event type. Implement only the ones you need:
 
@@ -194,7 +212,7 @@ The `endpointUrl` must exactly match the **HTTP endpoint URL** configured in you
 
 Each handler receives the event and (optionally) an event-specific caller (`chat:MessageCaller`, `chat:CardClickedCaller`, `chat:AppHomeCaller`, etc.) pre-configured with the event's space context. Use the caller to `respond` (synchronously, within the event window) or to call Chat APIs asynchronously (`sendMessage`, `updateMessage`, etc.).
 
-### Step 4: Run the Ballerina application
+#### Step 4: Run the Ballerina application
 
 ```bash
 bal run
