@@ -33,10 +33,10 @@ import ballerina/log;
 service class DispatcherService {
     *http:Service;
     private map<GenericServiceType> services = {};
-    private final Client chatClient;
+    private final Client? chatClient;
     private HttpConfig? httpConfig;
 
-    isolated function init(Client chatClient, HttpConfig? httpConfig = ()) {
+    isolated function init(Client? chatClient, HttpConfig? httpConfig = ()) {
         self.chatClient = chatClient;
         self.httpConfig = httpConfig;
     }

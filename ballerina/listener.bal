@@ -47,12 +47,15 @@ import ballerina/log;
 public class Listener {
     private http:Listener httpListener;
     private DispatcherService dispatcherService;
-    private final Client chatClient;
+    private final Client? chatClient;
 
     # Initializes the Google Chat trigger listener.
     #
     # + listenOn - The port or HTTP listener to listen on. Defaults to port 8000.
-    # + config - Configuration including auth credentials
+    # + config - Configuration including optional auth credentials. Without
+    #            `auth`, handlers can only respond synchronously via
+    #            `caller->respond(...)`; async Chat API operations on the
+    #            callers return an error at runtime.
     # + return - An error if initialization fails
     public function init(int|http:Listener listenOn = 8000, *ListenerConfig config) returns error? {
         if listenOn is http:Listener {
@@ -62,7 +65,14 @@ public class Listener {
         }
 
         // Create the Chat API client — used by the Callers for async operations.
-        self.chatClient = check new ({auth: config.auth});
+        // Without auth, callers support synchronous respond() only.
+        ServiceAccountAuthConfig|OAuth2Config|http:BearerTokenConfig? auth = config.auth;
+        if auth is () {
+            self.chatClient = ();
+            log:printWarn(WARN_NO_AUTH_CONFIG);
+        } else {
+            self.chatClient = check new Client({auth});
+        }
 
         self.dispatcherService = new DispatcherService(self.chatClient);
     }

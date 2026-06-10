@@ -85,6 +85,15 @@ function testListenerAttachWithoutAnnotationFails() returns error? {
     }
 }
 
+// The listener must initialize without `auth` (synchronous-response-only mode).
+@test:Config {}
+function testListenerInitWithoutAuth() returns error? {
+    Listener chatListener = check new (21095);
+    // Behaves like any other listener: start without an attached service still fails.
+    error? result = chatListener.'start();
+    test:assertTrue(result is ListenerError);
+}
+
 @test:Config {}
 function testListenerDetachUnattachedFails() returns error? {
     Listener chatListener = check new (21094, auth = listenerAuth);
