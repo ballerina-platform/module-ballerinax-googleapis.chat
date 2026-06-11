@@ -15,8 +15,8 @@ graalvmCompatible = true
 [[platform.java21.dependency]]
 groupId = "io.ballerina.lib"
 artifactId = "googleapis.chat-native"
-version = "0.1.0-SNAPSHOT"
-path = "../native/build/libs/googleapis.chat-native-0.1.0-SNAPSHOT.jar"
+version = "0.1.0"
+path = "../native/build/libs/googleapis.chat-native-0.1.0.jar"
 
 [build-options]
 observabilityIncluded = true
