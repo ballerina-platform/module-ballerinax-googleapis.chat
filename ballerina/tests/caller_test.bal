@@ -204,6 +204,62 @@ function testWidgetUpdatedCallerDoubleRespond() returns error? {
     test:assertTrue(second is DispatchError);
 }
 
+// ─── No-auth (synchronous-response-only) mode ──────────────────────────────────────
+
+@test:Config {}
+function testMessageCallerNoAuthRespondWorks() returns error? {
+    ResponseFuture respFut = new;
+    MessageCaller caller = new ((), TEST_SPACE, respFut);
+    check caller->respond({text: "sync only"});
+    map<anydata> result = check awaitPayload(respFut);
+    test:assertEquals(result["text"], "sync only");
+}
+
+@test:Config {}
+function testMessageCallerNoAuthApiMethodsFail() {
+    ResponseFuture respFut = new;
+    MessageCaller caller = new ((), TEST_SPACE, respFut);
+
+    Message|error sent = caller->sendMessage({text: "x"});
+    test:assertTrue(sent is ClientError, "sendMessage should fail without auth");
+
+    Message|error updated = caller->updateMessage(
+        {name: "spaces/" + TEST_SPACE + "/messages/" + TEST_MESSAGE, text: "edit"}, updateMask = "text");
+    test:assertTrue(updated is ClientError, "updateMessage should fail without auth");
+
+    error? deleted = caller->deleteMessage({name: "spaces/" + TEST_SPACE + "/messages/" + TEST_MESSAGE});
+    test:assertTrue(deleted is ClientError, "deleteMessage should fail without auth");
+
+    Space|error space = caller->getSpace();
+    test:assertTrue(space is ClientError, "getSpace should fail without auth");
+
+    if sent is ClientError {
+        test:assertTrue(sent.message().includes("auth"),
+            "error message should explain that auth credentials are required");
+    }
+}
+
+@test:Config {}
+function testCardClickedCallerNoAuthRespondWorks() returns error? {
+    ResponseFuture respFut = new;
+    CardClickedCaller caller = new ((), TEST_SPACE, respFut);
+    check caller->respond(<Message>{text: "sync only"});
+    map<anydata> result = check awaitPayload(respFut);
+    test:assertEquals(result["text"], "sync only");
+}
+
+@test:Config {}
+function testCardClickedCallerNoAuthApiMethodsFail() {
+    ResponseFuture respFut = new;
+    CardClickedCaller caller = new ((), TEST_SPACE, respFut);
+
+    Message|error sent = caller->sendMessage({text: "x"});
+    test:assertTrue(sent is ClientError, "sendMessage should fail without auth");
+
+    Space|error space = caller->getSpace();
+    test:assertTrue(space is ClientError, "getSpace should fail without auth");
+}
+
 // ─── resolveMessageId ──────────────────────────────────────────────────────────────
 
 @test:Config {}
