@@ -26,6 +26,12 @@ import ballerina/http;
 # The `auth` credentials are used to create the internal Chat API client
 # (for responding to events via the Chat API).
 #
+# `auth` is optional. If omitted, the listener works in synchronous-response-only
+# mode: handlers can answer events with `caller->respond(...)`, but the async
+# Chat API operations on the callers (`sendMessage`, `updateMessage`,
+# `deleteMessage`, `getSpace`) return an error at runtime since there is no
+# authenticated Chat API client.
+#
 # **For service account auth**: You can use one of three forms:
 # - `ServiceAccountConfig` with `issuer` plus a PEM/private-key config
 # - `ServiceAccountCredentials` with the service account represented as a Ballerina record
@@ -39,12 +45,13 @@ import ballerina/http;
 # longer, the Chat API client may fail.
 #
 # + auth - Authentication for the Chat API client
-#           (service account, OAuth2, or bearer token)
+#           (service account, OAuth2, or bearer token). Omit for
+#           synchronous-response-only mode.
 # + httpListenerConfig - Optional inbound HTTP listener settings
 @display {label: "Listener Config"}
 public type ListenerConfig record {|
     @display {label: "Auth Config"}
-    ServiceAccountAuthConfig|OAuth2Config|http:BearerTokenConfig auth;
+    ServiceAccountAuthConfig|OAuth2Config|http:BearerTokenConfig auth?;
     @display {label: "HTTP Listener Config"}
     http:ListenerConfiguration httpListenerConfig = {};
 |};

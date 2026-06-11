@@ -27,6 +27,8 @@
 #
 # Async Chat API operations (`sendMessage`, `updateMessage`, `deleteMessage`,
 # `getSpace`) are available for follow-up actions after calling `respond`.
+# These require the listener to be configured with `auth` credentials; if the
+# listener was created without `auth`, they return a `ClientError` at runtime.
 #
 # **Example — quick reply:**
 # ```ballerina
@@ -45,13 +47,13 @@
 # ```
 @display {label: "Google Chat Message Caller"}
 public isolated client class MessageCaller {
-    private final Client chatClient;
+    private final Client? chatClient;
     private final string spaceId;
     private final ResponseFuture responseFuture;
     private boolean responded = false;
 
     # Initializes the MessageCaller. Called internally by the dispatcher.
-    isolated function init(Client chatClient, string spaceId, ResponseFuture responseFuture) {
+    isolated function init(Client? chatClient, string spaceId, ResponseFuture responseFuture) {
         self.chatClient = chatClient;
         self.spaceId = spaceId;
         self.responseFuture = responseFuture;
@@ -80,18 +82,24 @@ public isolated client class MessageCaller {
 
     # Sends a message to the space asynchronously via the Chat API.
     #
+    # Requires the listener to be configured with `auth` credentials.
+    #
     # + message - The message payload to send
     # + return - The created message or an error
     remote isolated function sendMessage(CreateMessageRequest message) returns Message|error {
-        return self.chatClient->/spaces/[self.spaceId]/messages.post(message);
+        Client chatClient = check requireChatClient(self.chatClient);
+        return chatClient->/spaces/[self.spaceId]/messages.post(message);
     }
 
     # Updates a bot-accessible message in the same space.
+    #
+    # Requires the listener to be configured with `auth` credentials.
     #
     # + message - The message to update (must have `name` set)
     # + queries - Query parameters such as `updateMask` and `allowMissing`
     # + return - The updated message or an error
     remote isolated function updateMessage(Message message, *UpdateMessageQueries queries) returns Message|error {
+        Client chatClient = check requireChatClient(self.chatClient);
         string resolvedMessageId = check resolveMessageId(message.name);
         UpdateMessageRequest request = {
             text: message.text,
@@ -100,13 +108,13 @@ public isolated client class MessageCaller {
             accessoryWidgets: message.accessoryWidgets
         };
         if queries.allowMissing is boolean {
-            return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
+            return chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
                 request,
                 updateMask = queries.updateMask,
                 allowMissing = <boolean>queries.allowMissing
             );
         }
-        return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
+        return chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
             request,
             updateMask = queries.updateMask
         );
@@ -114,18 +122,24 @@ public isolated client class MessageCaller {
 
     # Deletes a bot-accessible message in the same space.
     #
+    # Requires the listener to be configured with `auth` credentials.
+    #
     # + message - The message to delete (must have `name` set)
     # + return - An error if the operation fails
     remote isolated function deleteMessage(Message message) returns error? {
+        Client chatClient = check requireChatClient(self.chatClient);
         string resolvedMessageId = check resolveMessageId(message.name);
-        return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].delete();
+        return chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].delete();
     }
 
     # Returns details about the space where the event occurred.
     #
+    # Requires the listener to be configured with `auth` credentials.
+    #
     # + return - The space details or an error
     remote isolated function getSpace() returns Space|error {
-        return self.chatClient->/spaces/[self.spaceId];
+        Client chatClient = check requireChatClient(self.chatClient);
+        return chatClient->/spaces/[self.spaceId];
     }
 }
 
@@ -215,13 +229,13 @@ public isolated client class AppHomeCaller {
 # ```
 @display {label: "Google Chat Card Clicked Caller"}
 public isolated client class CardClickedCaller {
-    private final Client chatClient;
+    private final Client? chatClient;
     private final string spaceId;
     private final ResponseFuture responseFuture;
     private boolean responded = false;
 
     # Initializes the CardClickedCaller. Called internally by the dispatcher.
-    isolated function init(Client chatClient, string spaceId, ResponseFuture responseFuture) {
+    isolated function init(Client? chatClient, string spaceId, ResponseFuture responseFuture) {
         self.chatClient = chatClient;
         self.spaceId = spaceId;
         self.responseFuture = responseFuture;
@@ -259,18 +273,24 @@ public isolated client class CardClickedCaller {
 
     # Sends a message to the space asynchronously via the Chat API.
     #
+    # Requires the listener to be configured with `auth` credentials.
+    #
     # + message - The message payload to send
     # + return - The created message or an error
     remote isolated function sendMessage(CreateMessageRequest message) returns Message|error {
-        return self.chatClient->/spaces/[self.spaceId]/messages.post(message);
+        Client chatClient = check requireChatClient(self.chatClient);
+        return chatClient->/spaces/[self.spaceId]/messages.post(message);
     }
 
     # Updates a bot-accessible message in the same space.
+    #
+    # Requires the listener to be configured with `auth` credentials.
     #
     # + message - The message to update (must have `name` set)
     # + queries - Query parameters such as `updateMask` and `allowMissing`
     # + return - The updated message or an error
     remote isolated function updateMessage(Message message, *UpdateMessageQueries queries) returns Message|error {
+        Client chatClient = check requireChatClient(self.chatClient);
         string resolvedMessageId = check resolveMessageId(message.name);
         UpdateMessageRequest request = {
             text: message.text,
@@ -279,13 +299,13 @@ public isolated client class CardClickedCaller {
             accessoryWidgets: message.accessoryWidgets
         };
         if queries.allowMissing is boolean {
-            return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
+            return chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
                 request,
                 updateMask = queries.updateMask,
                 allowMissing = <boolean>queries.allowMissing
             );
         }
-        return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
+        return chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].patch(
             request,
             updateMask = queries.updateMask
         );
@@ -293,18 +313,24 @@ public isolated client class CardClickedCaller {
 
     # Deletes a bot-accessible message in the same space.
     #
+    # Requires the listener to be configured with `auth` credentials.
+    #
     # + message - The message to delete (must have `name` set)
     # + return - An error if the operation fails
     remote isolated function deleteMessage(Message message) returns error? {
+        Client chatClient = check requireChatClient(self.chatClient);
         string resolvedMessageId = check resolveMessageId(message.name);
-        return self.chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].delete();
+        return chatClient->/spaces/[self.spaceId]/messages/[resolvedMessageId].delete();
     }
 
     # Returns details about the space where the event occurred.
     #
+    # Requires the listener to be configured with `auth` credentials.
+    #
     # + return - The space details or an error
     remote isolated function getSpace() returns Space|error {
-        return self.chatClient->/spaces/[self.spaceId];
+        Client chatClient = check requireChatClient(self.chatClient);
+        return chatClient->/spaces/[self.spaceId];
     }
 }
 
@@ -413,6 +439,18 @@ public isolated client class WidgetUpdatedCaller {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utility Functions
 // ═══════════════════════════════════════════════════════════════════════════════
+
+# Returns the Chat API client, or a `ClientError` if the listener was created
+# without `auth` credentials (synchronous-response-only mode).
+#
+# + chatClient - The optional Chat API client held by the caller
+# + return - The client, or a `ClientError` when no client is available
+isolated function requireChatClient(Client? chatClient) returns Client|ClientError {
+    if chatClient is () {
+        return error ClientError(ERR_NO_CHAT_CLIENT);
+    }
+    return chatClient;
+}
 
 isolated function resolveMessageId(string? messageId) returns string|error {
     if messageId !is string || messageId == "" {

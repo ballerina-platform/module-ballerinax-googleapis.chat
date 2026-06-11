@@ -112,6 +112,9 @@ const string LOG_EVENT_DISPATCHED = "Chat event dispatched: ";
 
 const string WARN_UNKNOWN_EVENT_TYPE = "Received unknown event type: ";
 const string WARN_HTTP_AUTH_FAILED = "Rejected request: bearer token verification failed";
+const string WARN_NO_AUTH_CONFIG = "Listener started without auth credentials: callers support synchronous " +
+    "respond() only. Chat API operations (sendMessage, updateMessage, deleteMessage, getSpace) will return an " +
+    "error. Provide `auth` in the listener configuration to enable them.";
 
 // ── Error Messages ──────────────────────────────────────────────────────────────
 
@@ -121,6 +124,9 @@ const string ERR_SERVICE_ATTACH = "Service has already been attached.";
 const string ERR_SERVICE_DETACH = "Cannot detach service. Service has not been attached.";
 const string ERR_BEARER_TOKEN_MISSING = "Missing or malformed Authorization header. Expected 'Bearer <token>'.";
 const string ERR_BEARER_TOKEN_INVALID = "Bearer token verification failed: token was not issued by Google Chat.";
+const string ERR_NO_CHAT_CLIENT = "Chat API operations require auth credentials. The listener was created " +
+    "without an `auth` configuration, so only synchronous responses via respond() are supported. " +
+    "Provide `auth` in the listener configuration to enable Chat API operations.";
 
 // ── Other Constants ─────────────────────────────────────────────────────────────
 # Maximum time (in seconds) to wait for a handler to call respond() before
