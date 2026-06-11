@@ -48,6 +48,7 @@ public class Listener {
     private http:Listener httpListener;
     private DispatcherService dispatcherService;
     private final Client? chatClient;
+    private string[]|string? attachPoint = ();
 
     # Initializes the Google Chat trigger listener.
     #
@@ -83,9 +84,13 @@ public class Listener {
     # token verification settings.
     #
     # + serviceRef - The service to attach (must have a `@ServiceConfig` annotation)
-    # + attachPoint - The attach point (unused, kept for API compatibility)
+    # + attachPoint - The path to mount the service on (e.g. `/chat/webhook`).
+    #                 Defaults to the root path (`/`) when the service is
+    #                 declared without a path. Use a custom attach point to
+    #                 host the Chat trigger alongside other services on a
+    #                 shared `http:Listener`.
     # + return - An error if the annotation is missing
-    public function attach(GenericServiceType serviceRef, () attachPoint) returns @tainted error? {
+    public function attach(GenericServiceType serviceRef, string[]|string? attachPoint = ()) returns @tainted error? {
         typedesc<any> serviceTypedesc = typeof serviceRef;
         ServiceConfiguration? svcConfig = serviceTypedesc.@ServiceConfig;
         if svcConfig is () {
@@ -94,6 +99,7 @@ public class Listener {
         }
         check validateService(serviceRef);
 
+        self.attachPoint = attachPoint;
         string serviceTypeStr = self.getServiceTypeStr(serviceRef);
         check self.dispatcherService.addServiceRef(serviceTypeStr, serviceRef);
 
@@ -117,7 +123,7 @@ public class Listener {
         if !self.dispatcherService.hasServiceRefs() {
             return error ListenerError("No ChatService has been attached to this listener");
         }
-        check self.httpListener.attach(self.dispatcherService, ());
+        check self.httpListener.attach(self.dispatcherService, self.attachPoint);
         return self.httpListener.'start();
     }
 

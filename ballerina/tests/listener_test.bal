@@ -21,6 +21,7 @@ final http:BearerTokenConfig listenerAuth = {token: "test-token"};
 
 listener Listener gracefulListener = new (21092, auth = listenerAuth);
 listener Listener immediateListener = new (21093, auth = listenerAuth);
+listener Listener customPathListener = new (21096, auth = listenerAuth);
 
 @ServiceConfig {
     endpointUrl: "https://my-app.example.com"
@@ -35,6 +36,17 @@ service ChatService on gracefulListener {
     endpointUrl: "https://my-app.example.com"
 }
 service ChatService on immediateListener {
+    remote function onMessage(MessageEvent event, MessageCaller caller) returns error? {
+        check caller->respond({text: "hi"});
+    }
+}
+
+// Attached at a custom path rather than the root. Exercises the custom
+// attach-point support so the trigger can share an http:Listener.
+@ServiceConfig {
+    endpointUrl: "https://my-app.example.com"
+}
+service ChatService /chat/webhook on customPathListener {
     remote function onMessage(MessageEvent event, MessageCaller caller) returns error? {
         check caller->respond({text: "hi"});
     }
@@ -62,6 +74,22 @@ function testListenerRejectsUnauthenticatedRequests() returns error? {
     http:Response badAuth = check ep->post("/", {'type: "MESSAGE"},
             {"Authorization": "Bearer not-a-valid-jwt"});
     test:assertEquals(badAuth.statusCode, 401);
+}
+
+// A service attached at a custom path must receive events on that path, and
+// the root path must not be mounted. A request to the custom path reaches the
+// dispatcher and fails auth (401); a request to root is unrouted (404).
+@test:Config {}
+function testListenerCustomAttachPointRouting() returns error? {
+    http:Client ep = check new ("http://localhost:21096");
+
+    http:Response onPath = check ep->post("/chat/webhook", {'type: "MESSAGE"});
+    test:assertEquals(onPath.statusCode, 401,
+            "request to custom attach point should reach the dispatcher");
+
+    http:Response onRoot = check ep->post("/", {'type: "MESSAGE"});
+    test:assertEquals(onRoot.statusCode, 404,
+            "root path should not be mounted when a custom attach point is used");
 }
 
 @test:Config {}
@@ -106,4 +134,5 @@ function testListenerDetachUnattachedFails() returns error? {
 function stopListeners() returns error? {
     check gracefulListener.gracefulStop();
     check immediateListener.immediateStop();
+    check customPathListener.gracefulStop();
 }
