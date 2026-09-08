@@ -8,6 +8,7 @@ authors = ["Ballerina"]
 keywords = ["Communication/Google Chat", "Cost/Freemium", "Vendor/Google", "Area/Communication", "Type/Connector", "Type/Trigger"]
 icon = "icon.png"
 repository = "https://github.com/ballerina-platform/module-ballerinax-googleapis.chat"
+include = ["metadata/**"]
 
 [platform.java21]
 graalvmCompatible = true
